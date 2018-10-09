@@ -11,10 +11,16 @@ category:            Parallelism
 build-type:          Simple
 extra-source-files:  CHANGELOG.md
 cabal-version:       >=1.10
+tested-with:         GHC == 8.4.3
+                   , GHC == 8.6.1
+
+source-repository head
+  type:     git
+  location: https://github.com/iu-parfunc/showtime
 
 library
   exposed-modules:     Showtime.Original
-  build-depends:       base       >= 4.10 && < 4.12
+  build-depends:       base       >= 4.10 && < 4.13
                      , containers >= 0.5  && < 0.7
                      , lattices   >= 1.7  && < 1.8
   hs-source-dirs:      src
@@ -25,7 +31,7 @@ test-suite spec
   type:                exitcode-stdio-1.0
   main-is:             Spec.hs
   other-modules:       Showtime.OriginalSpec
-  build-depends:       base       >= 4.10 && < 4.12
+  build-depends:       base       >= 4.10 && < 4.13
                      , hspec      >= 2    && < 3
                      , QuickCheck >= 2.10 && < 2.13
                      , showtime
