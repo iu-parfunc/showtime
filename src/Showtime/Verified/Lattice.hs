@@ -1,9 +1,11 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Showtime.Verified.Lattice where
 
 import Algebra.Lattice
@@ -27,6 +29,14 @@ $(singletonsOnly [d|
       bottom :: a
   |])
 
+$(singletonsOnly [d|
+  instance JoinSemiLattice () where
+    _ \/ _ = ()
+
+  instance BoundedJoinSemiLattice () where
+    bottom = ()
+  |])
+
 class (JoinSemiLattice a, PJoinSemiLattice a, SJoinSemiLattice a)
     => VJoinSemiLattice a where
   jslAssociativity :: forall (x :: a) (y :: a) (z :: a).
@@ -45,3 +55,11 @@ class ( BoundedJoinSemiLattice a, PBoundedJoinSemiLattice a
     => VBoundedJoinSemiLattice a where
   bjslIdentity :: forall (x :: a). Sing x
                -> (x \/ Bottom) :~: x
+
+instance VJoinSemiLattice () where
+  jslAssociativity _ _ _ = Refl
+  jslCommutativity _ _ = Refl
+  jslIdempotency STuple0 = Refl
+
+instance VBoundedJoinSemiLattice () where
+  bjslIdentity STuple0 = Refl

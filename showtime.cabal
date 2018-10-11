@@ -20,7 +20,11 @@ source-repository head
 
 library
   exposed-modules:     Showtime.Original
+                       Showtime.Verified.Eq
                        Showtime.Verified.Lattice
+                       Showtime.Verified.Map
+                       Showtime.Verified.Set
+                       Showtime.Verified.So
                        Showtime.Verified.Vec
   build-depends:       base           >= 4.10  && < 4.13
                      , containers     >= 0.5   && < 0.7
