@@ -116,7 +116,7 @@ Instance bjslMax : BoundedJoinSemiLattice Max := {
   bottom := zero
 }.
 
-Instance hasEquivRelMax : Equiv Max := {
+Instance hasEquivRelMax : HasEquivRel Max := {
   EquivRel := MaxEq
 }.
 
