@@ -37,7 +37,7 @@ test-suite spec
   other-modules:       Showtime.OriginalSpec
   build-depends:       base       >= 4.10 && < 4.13
                      , hspec      >= 2    && < 3
-                     , QuickCheck >= 2.10 && < 2.13
+                     , QuickCheck >= 2.10 && < 2.14
                      , showtime
   build-tool-depends:  hspec-discover:hspec-discover >= 2 && < 3
   hs-source-dirs:      tests
