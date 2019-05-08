@@ -3,7 +3,6 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-} -- TODO: Come on. We're better than this.
 module Showtime.Original where
 
-import Algebra.Lattice
 import qualified Data.Foldable as Fld
 import Data.List as L
 import qualified Data.Map as M
@@ -12,6 +11,7 @@ import qualified Data.Set as S
 import Data.Set (Set)
 import qualified Data.Sequence as Seq
 import Data.Sequence ((|>))
+import Showtime.Lattice
 
 #if 0
 import qualified Debug.Trace
@@ -97,7 +97,7 @@ instance JoinSemiLattice State where
   --   should never learn about new join events that are *in the past*
   --   based on our current clock.  This constraint needs to live
   --   somewhere.
-  join (State t1 l1) (State t2 l2) =
+  State t1 l1 \/ State t2 l2 =
     State (zipWith max t1 t2) (S.union l1 l2)
 
 instance BoundedJoinSemiLattice State where

@@ -4,12 +4,11 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
-module Showtime.Verified.Lattice where
+module Showtime.Lattice where
 
-import Algebra.Lattice
 import Data.Singletons.TH
 
-$(singletonsOnly [d|
+$(singletons [d|
 
   -- -| A algebraic structure with element joins: <http://en.wikipedia.org/wiki/Semilattice>
   --

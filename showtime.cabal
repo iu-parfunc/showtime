@@ -19,12 +19,11 @@ source-repository head
   location: https://github.com/iu-parfunc/showtime
 
 library
-  exposed-modules:     Showtime.Original
-                       Showtime.Verified.Lattice
+  exposed-modules:     Showtime.Lattice
+                       Showtime.Original
                        Showtime.Verified.Vec
   build-depends:       base           >= 4.10  && < 4.13
                      , containers     >= 0.5   && < 0.7
-                     , lattices       >= 1.7   && < 1.8
                      , singletons     >= 2.4   && < 2.6
                      , singleton-nats >= 0.4.1 && < 0.5
   hs-source-dirs:      src

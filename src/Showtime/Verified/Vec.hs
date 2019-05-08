@@ -10,11 +10,10 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Showtime.Verified.Vec where
 
-import Algebra.Lattice
 import Data.Kind
 import Data.Nat
 import Data.Singletons.TH
-import Showtime.Verified.Lattice
+import Showtime.Lattice
 
 data Vec :: Nat -> Type -> Type where
   VNil :: Vec Z a
