@@ -1,5 +1,5 @@
 From Showtime Require Import Lattice.
-Require Import Coq.Classes.RelationClasses.
+Require Import Classes.RelationClasses Setoid SetoidClass.
 Require Vectors.Vector.
 Require Import Program.Equality.
 
@@ -40,38 +40,53 @@ Proof.
 intros. pose proof (tS_is_cons_het n v eq_refl). do 2 destruct H. rewrite H. eauto.
 Qed.
 
-Definition VecEq {a n} `{her : HasEquivRel a} : Vector.t a n -> Vector.t a n -> Prop :=
-  Vector.rect2 (fun _ _ _ => Prop) True (fun _ v1' v2' r x y => EquivRel x y /\ r).
+Definition VecEq {a n} (rel : relation a) : Vector.t a n -> Vector.t a n -> Prop :=
+  Vector.rect2 (fun _ _ _ => Prop) True (fun _ v1' v2' r x y => rel x y /\ r).
 
-Instance VecHasEquivRel :
-  forall {a n} `{her : HasEquivRel a},
-  HasEquivRel (Vector.t a n) := {
-  EquivRel := VecEq
-}.
-
-Instance VecEqEquivalence :
-  forall {a n} `{vjsl : VJoinSemiLattice a},
-  Equivalence (@VecEq a n her) := {}.
+Instance VecEqReflexive :
+  forall {a n} {rel : relation a} `{Reflexive a rel},
+  Reflexive (@VecEq a n rel) := {}.
 Proof.
-- unfold Reflexive. intros. induction x.
+  induction x.
   + constructor.
   + split.
-    * destruct vjsl, er. apply Equivalence_Reflexive.
+    * reflexivity.
     * auto.
-- unfold Symmetric. intros. induction x.
-  + rewrite (tO_is_nil y). constructor.
-  + pose proof (tS_is_cons y). do 2 destruct H0. subst.
-    simpl. destruct H. split.
-    * destruct vjsl, er. apply Equivalence_Symmetric. auto.
-    * apply (IHx x1 H0).
-- unfold Transitive. intros. induction x.
-  + rewrite (tO_is_nil z). constructor.
-  + pose proof (tS_is_cons y). do 2 destruct H1.
-    pose proof (tS_is_cons z). do 2 destruct H2. subst.
-    simpl. destruct H0, H. split.
-    * destruct vjsl, er. apply (Equivalence_Transitive h x0 x2 H H0).
-    * apply (IHx x1 x3 H2 H1).
 Qed.
+
+Instance VecEqSymmetric :
+  forall {a n} {rel : relation a} `{Symmetric a rel},
+  Symmetric (@VecEq a n rel) := {}.
+Proof.
+  intros. induction x.
+  + rewrite (tO_is_nil y). constructor.
+  + pose proof (tS_is_cons y). do 2 destruct H1. subst.
+    simpl. destruct H0. split.
+    * symmetry. auto.
+    * auto.
+Qed.
+
+Instance VecEqTransitive :
+  forall {a n} {rel : relation a} `{Transitive a rel},
+  Transitive (@VecEq a n rel) := {}.
+Proof.
+  intros. induction x.
+  + rewrite (tO_is_nil z). constructor.
+  + pose proof (tS_is_cons y). do 2 destruct H2.
+    pose proof (tS_is_cons z). do 2 destruct H3. subst.
+    simpl. destruct H1, H0. split.
+    * rewrite H0. auto.
+    * apply (IHx _ _ H3 H2).
+Qed.
+
+Instance VecEqEquivalence :
+  forall {a n} {rel : relation a} `{Equivalence a rel},
+  Equivalence (@VecEq a n rel) := {}.
+
+Instance VecSetoid :
+  forall {a n} `{Setoid a}, Setoid (Vector.t a n) := {
+  equiv := @VecEq a n equiv
+}.
 
 Instance VJSL_Vec : forall {a n} `{VJoinSemiLattice a},
                      VJoinSemiLattice (Vector.t a n) := {}.

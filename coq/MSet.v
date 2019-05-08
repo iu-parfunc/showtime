@@ -1,12 +1,13 @@
-From Showtime Require Import Lattice.
-Require Import Classes.RelationClasses.
+From Showtime Require Import Lattice Max.
+Require Import Classes.RelationClasses SetoidClass.
 Require Import MSets MSets.MSetProperties.
 
-Module S      := Make Nat_as_OT.
-Module SProps := WPropertiesOn Nat_as_DT S.
+Module Max_Nat_as_OT := PairOrderedType Max_as_OT Nat_as_OT.
+Module S      := Make Max_Nat_as_OT.
+Module SProps := WPropertiesOn Max_Nat_as_OT S.
 
-Instance S_EquivRel : HasEquivRel S.t := {
-  EquivRel := S.Equal
+Instance S_Setoid : Setoid S.t := {
+  equiv := S.Equal
 }.
 
 Instance S_JSL : JoinSemiLattice S.t := {

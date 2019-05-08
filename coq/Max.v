@@ -1,14 +1,37 @@
 From Showtime Require Import Lattice.
 Require Import Omega.
-Require Import QArith.
+Require Import QArith QArith.QOrderedType.
+Require Import SetoidClass.
+Require Import Structures.Equalities Structures.Orders.
 
 (* A "newtype" around Q *)
 Inductive Max : Type :=
 | MkMax : forall (q : Q), (0 <= Qnum q)%Z -> Max.
 
+Lemma ZofNNonNeg :
+  forall (numer : N), (0 <= Z.of_N numer)%Z.
+Proof.
+  destruct numer; simpl.
+  - reflexivity.
+  - apply Zle_0_pos.
+Qed.
+
+Definition mkMax (numer : N) (denom : positive) : Max :=
+  MkMax (Qmake (Z.of_N numer) denom) (ZofNNonNeg numer).
+
 Definition MaxEq (m1 m2 : Max) : Prop :=
   match m1, m2 with
   | MkMax q1 _, MkMax q2 _ => Qeq q1 q2
+  end.
+
+Definition MaxLt (m1 m2 : Max) : Prop :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qlt q1 q2
+  end.
+
+Definition MaxCompare (m1 m2 : Max) : comparison :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qcompare q1 q2
   end.
 
 Definition max (m1 m2 : Max) : Max :=
@@ -20,14 +43,21 @@ Definition max (m1 m2 : Max) : Max :=
     end
   end.
 
-Definition zero : Max := MkMax 0 (Z.le_refl 0).
-
-Lemma Qcompare_no_converse :
-  forall {q1 q2 : Q}, q1 < q2 -> ~ (q2 < q1).
+Lemma maxMultNonNeg :
+  forall (q1 q2 : Q),
+  (0 <= Qnum q1)%Z -> (0 <= Qnum q2)%Z -> (0 <= Qnum (q1 * q2))%Z.
 Proof.
-  intros. intro. rewrite Qlt_alt in H. rewrite Qgt_alt in H0.
-  rewrite H in H0. discriminate.
+  destruct q1, q2. simpl. intros.
+  destruct Qnum; destruct Qnum0; simpl; try contradiction; try omega; try (apply Zle_0_pos).
 Qed.
+
+Definition MaxMult (m1 m2 : Max) : Max :=
+  match m1, m2 with
+  | MkMax q1 q1NonNeg, MkMax q2 q2NonNeg =>
+    MkMax (q1 * q2) (maxMultNonNeg q1 q2 q1NonNeg q2NonNeg)
+  end.
+
+Definition zero : Max := mkMax 0 1.
 
 Lemma Qlt_alt' :
   forall {q1 q2 : Q}, q1 < q2 -> (q1 ?= q2) = Lt.
@@ -42,7 +72,7 @@ Proof.
 Qed.
 
 Lemma Qeq_alt' :
-  forall {q1 q2 : Q}, q1 == q2 -> (q1 ?= q2) = Eq.
+  forall {q1 q2 : Q}, (q1 == q2)%Q -> (q1 ?= q2) = Eq.
 Proof.
   intros. destruct (Qeq_alt q1 q2). auto.
 Qed.
@@ -56,19 +86,17 @@ Ltac cdestruct X :=
     [eauto with cdestruct
     | destruct H as [H|H|H] ].
 
-Ltac crush_Qcompare :=
+Ltac rewrite_Qeqs :=
   repeat match goal with
   | H : ?q1 <  ?q2 |- context[?q1 ?= ?q2] => rewrite (Qlt_alt' H)
   | H : ?q1 <  ?q2 |- context[?q2 ?= ?q1] => rewrite (Qgt_alt' H)
-  | H : ?q1 == ?q2 |- context[?q1 ?= ?q2] => rewrite (Qeq_alt' H)
-  | H : ?q1 == ?q2 |- context[?q2 ?= ?q1] => rewrite (Qeq_alt' (eq_sym H))
+  | H : (?q1 == ?q2)%Q |- context[?q1 ?= ?q2] => rewrite (Qeq_alt' H)
+  | H : (?q1 == ?q2)%Q |- context[?q2 ?= ?q1] => rewrite (Qeq_alt' (eq_sym H))
   | |- context[?q ?= ?q] => rewrite (Qeq_alt' (Qeq_refl q))
-  | |- ?q == ?q => apply Qeq_refl
-  | H : ?q1 == ?q2 |- ?q2 == ?q1 => apply (Qeq_sym q1 q2 H)
-  | H1 : ?q1 == ?q2, H2 : ?q2 == ?q3 |- ?q1 == ?q3 => apply (Qeq_trans q1 q2 q3 H1 H2)
-  | H1 : ?q1 < ?q2, H2 : ?q2 < ?q1 |- _ => destruct (Qcompare_no_converse H1 H2)
-  | |- _ => assumption
   end.
+
+Ltac crush_Q :=
+  simpl; rewrite_Qeqs; simpl; q_order.
 
 Lemma Qlt_0_neg :
   forall (q : Q), q < 0 -> (Qnum q < 0)%Z.
@@ -80,31 +108,26 @@ Theorem max_associative :
   forall (m1 m2 m3 : Max), MaxEq (max m1 (max m2 m3)) (max (max m1 m2) m3).
 Proof.
   destruct m1 as [q1]. destruct m2 as [q2]. destruct m3 as [q3]. simpl.
-  cdestruct (q1 ?= q2); cdestruct (q2 ?= q3); cdestruct (q1 ?= q3);
-  repeat (simpl; crush_Qcompare).
-  - rewrite <- H in H0. crush_Qcompare.
-  - rewrite H0 in H. crush_Qcompare.
-  - pose proof (Qlt_trans q1 q2 q3 H H0). crush_Qcompare.
-  - pose proof (Qlt_trans q1 q3 q2 H1 H0). crush_Qcompare.
+  cdestruct (q1 ?= q2); cdestruct (q2 ?= q3); cdestruct (q1 ?= q3); crush_Q.
 Qed.
 
 Theorem max_commutative :
   forall (m1 m2 : Max), MaxEq (max m1 m2) (max m2 m1).
 Proof.
   destruct m1, m2. simpl.
-  cdestruct (q ?= q0); cdestruct (q0 ?= q); repeat (simpl; crush_Qcompare).
+  cdestruct (q ?= q0); cdestruct (q0 ?= q); crush_Q.
 Qed.
 
 Theorem max_idempotent :
   forall (m : Max), MaxEq (max m m) m.
 Proof.
-  destruct m. repeat (simpl; crush_Qcompare).
+  destruct m. crush_Q.
 Qed.
 
 Theorem max_identity :
   forall (m : Max), MaxEq (max m zero) m.
 Proof.
-  destruct m. simpl. cdestruct (q ?= 0); simpl; crush_Qcompare.
+  destruct m. simpl. cdestruct (q ?= 0); try crush_Q.
   apply Qlt_0_neg in H. omega.
 Qed.
 
@@ -116,16 +139,28 @@ Instance bjslMax : BoundedJoinSemiLattice Max := {
   bottom := zero
 }.
 
-Instance hasEquivRelMax : HasEquivRel Max := {
-  EquivRel := MaxEq
-}.
+Instance maxEqReflexive : Reflexive MaxEq := {}.
+Proof. destruct x. crush_Q. Qed.
+
+Instance maxEqSymmetric : Symmetric MaxEq := {}.
+Proof. destruct x, y. crush_Q. Qed.
+
+Instance maxEqTransitive : Transitive MaxEq := {}.
+Proof. destruct x, y, z. crush_Q. Qed.
 
 Instance maxEqEquivalence : Equivalence MaxEq := {}.
-Proof.
-- unfold Reflexive. destruct x. simpl. crush_Qcompare.
-- unfold Symmetric. destruct x, y. simpl. intros. crush_Qcompare.
-- unfold Transitive. destruct x, y, z. simpl. intros. crush_Qcompare.
-Qed.
+
+Instance maxEqSetoid : Setoid Max := {
+  equiv := MaxEq
+}.
+
+Instance maxLtTransitive : Transitive MaxLt := {}.
+Proof. destruct x, y, z. crush_Q. Qed.
+
+Instance maxLtIrreflexive : Irreflexive MaxLt := {}.
+Proof. unfold Reflexive. destruct x. unfold complement. crush_Q. Qed.
+
+Instance maxLtStrictOrder : StrictOrder MaxLt := {}.
 
 Instance vjslMax : VJoinSemiLattice Max := {
   jslAssociativity := max_associative
@@ -136,3 +171,44 @@ Instance vjslMax : VJoinSemiLattice Max := {
 Instance vbjslMax : VBoundedJoinSemiLattice Max := {
   bjslIdentity := max_identity
 }.
+
+Module Max_as_DT <: DecidableType.
+  Definition t := Max.
+
+  Definition eq := MaxEq.
+
+  Lemma eq_refl : forall x : t, eq x x.
+  Proof. destruct x. apply Q_as_DT.eq_refl. Qed.
+
+  Lemma eq_sym : forall x y : t, eq x y -> eq y x.
+  Proof. destruct x, y. apply Q_as_DT.eq_sym. Qed.
+
+  Lemma eq_trans : forall x y z : t, eq x y -> eq y z -> eq x z.
+  Proof. destruct x, y, z. apply Q_as_DT.eq_trans. Qed.
+
+  Lemma eq_equiv : Equivalence eq.
+  Proof. apply maxEqEquivalence. Qed.
+
+  Definition eq_dec : forall x y : t, {eq x y} + {~ eq x y}.
+  Proof. destruct x, y. apply Q_as_DT.eq_dec. Qed.
+End Max_as_DT.
+
+Module Max_as_OT <: OrderedType.
+  Include Max_as_DT.
+
+  Definition lt := MaxLt.
+
+  Lemma lt_strorder : StrictOrder lt.
+  Proof. apply maxLtStrictOrder. Qed.
+
+  Lemma lt_compat : Proper (eq ==> eq ==> iff) lt.
+  Proof.
+    unfold Proper, respectful. destruct x, y. simpl.
+    destruct x, y. simpl. intros. split; crush_Q.
+  Qed.
+
+  Definition compare := MaxCompare.
+
+  Lemma compare_spec : forall x y : t, CompareSpec (eq x y) (lt x y) (lt y x) (compare x y).
+  Proof. destruct x, y. simpl. cdestruct (q ?= q0); auto. Qed.
+End Max_as_OT.
