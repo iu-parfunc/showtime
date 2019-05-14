@@ -1,6 +1,5 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# OPTIONS_GHC -Wno-name-shadowing #-} -- TODO: Come on. We're better than this.
 module Showtime.Original where
 
 import qualified Data.Foldable as Fld
@@ -231,18 +230,18 @@ ex1 = do
    let s1 = tickN 5 (TID 0) $
             tickN 3 (TID 1) $
             tickN 4 (TID 2) $ bound numProcs bottom
-   (s',_) <- openResource (TID 1) s1  -- access at time 3
+   (s2,_) <- openResource (TID 1) s1  -- access at time 3
    -- In this excessively conservative prototype, we must tick (TID 2) forward as well:
-   s' <- pure$ tick (TID 2) s'
-   (s',_) <- openResource (TID 1) s'  -- access at time 4
+   s3 <- pure$ tick (TID 2) s2
+   (s4,_) <- openResource (TID 1) s3  -- access at time 4
 
-   -- s' <- pure$ tickN 3 (TID 0) -- tick forward into the show
+   -- s5 <- pure$ tickN 3 (TID 0) -- tick forward into the show
 
-   s' <- pure$ tick (TID 1) s'
-   s' <- pure$ tick (TID 2) s'
-   (s',_) <- openResource (TID 0) s'  -- access at time 5
+   s5 <- pure$ tick (TID 1) s4
+   s6 <- pure$ tick (TID 2) s5
+   (s7,_) <- openResource (TID 0) s6  -- access at time 5
 
-   return s'
+   return s7
 
 -- Monadic formulation
 --------------------------------------------------------------------------------
