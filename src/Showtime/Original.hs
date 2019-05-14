@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# OPTIONS_GHC -Wincomplete-uni-patterns #-}
 module Showtime.Original where
 
 import qualified Data.Foldable as Fld
