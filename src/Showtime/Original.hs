@@ -6,6 +6,7 @@ module Showtime.Original where
 import qualified Data.Foldable as Fld
 import Data.List as L
 import qualified Data.Map as M
+import Data.Map (Map)
 import Data.Maybe (catMaybes)
 import qualified Data.Set as S
 import Data.Set (Set)
@@ -170,64 +171,83 @@ readParticipants t (State tv lg)
 -- have access to the resource.
 getNextShow :: TID -> State -> Maybe Time
 getNextShow myi s0@(State tv lg) =
-    trace (show myi ++ ": getting next show at time " ++ show myt
-           ++ " from times " ++ show times ++ " in state " ++ show s0
-           ++ " result = " ++ show result)
-          result
- where
-   -- If the show we WOULD seem to be part of is based on incomplete
-   -- information, then we must block until more information is available:
-   -- result, tentative :: Maybe Time
-   -- result = case tentative of
-   --            Nothing -> Nothing
-   --            Just tm -> if L.any (< tm) tv
-   --                       then Nothing
-   --                       else tentative
+  trace (show myi ++ ": getting next show at time " ++ show myt
+         ++ " from times " ++ show times ++ " in state " ++ show s0
+         ++ " result = " ++ show result)
+        result
+  where
+    -- If the show we WOULD seem to be part of is based on incomplete
+    -- information, then we must block until more information is available:
+    -- result, tentative :: Maybe Time
+    -- result = case tentative of
+    --            Nothing -> Nothing
+    --            Just tm -> if L.any (< tm) tv
+    --                       then Nothing
+    --                       else tentative
 
-   -- Grab the first time that we can make it to:
-   result = ourShow (dropWhile (< (myt-showLen)) times)
-   ourShow [] = Nothing
-   ourShow (t:rst)
-    | t < myt = do set <- readParticipants t s0 -- Who was in at the START of the show.
-                   trace (" <getNext> " ++ show myi ++ " is checking for membership in "
-                          ++ show set ++ " i.e. participants in show starting at " ++show t) $
-                         if S.member myi set
-                         then return t
-                         else ourShow rst
-    | otherwise = trace (" <getNext> got winner " ++ show t) $
-                        Just t
-   myt   = myTime myi s0
-   times = showtimes (L.map fst pref)
-   -- The STABLE prefix is the one that is pruned to the GMIC:
-   pref  = unstableLogPrefix (minimum tv) lg
+    -- Grab the first time that we can make it to:
+    result :: Maybe Time
+    result = ourShow (dropWhile (< (myt-showLen)) times)
+
+    ourShow :: [Time] -> Maybe Time
+    ourShow [] = Nothing
+    ourShow (t:rst)
+     | t < myt
+     = do set <- readParticipants t s0 -- Who was in at the START of the show.
+          trace (" <getNext> " ++ show myi ++ " is checking for membership in "
+                 ++ show set ++ " i.e. participants in show starting at " ++show t) $
+                if S.member myi set
+                then return t
+                else ourShow rst
+     | otherwise
+     = trace (" <getNext> got winner " ++ show t) $
+             Just t
+
+    myt :: Time
+    myt = myTime myi s0
+
+    times :: [Time]
+    times = showtimes (L.map fst pref)
+
+    -- The STABLE prefix is the one that is pruned to the GMIC:
+    pref :: [(Time, TID)]
+    pref = unstableLogPrefix (minimum tv) lg
 
 -- | Simple SEQUENTIAL process that describes the show start times as a
 -- function of join request times.
 showtimes :: [Time] -> [Time]
 showtimes ls = open ls
- where
-   open [] = []
-   open (t0:rst) = t0 : closed (t0 + showLen) rst
-   closed _expiry [] = []
-   closed expiry (t1:rst)
-     | t1 < expiry = expiry : closed (expiry + showLen) (dropWhile (< expiry) rst)
-     | otherwise   = open (t1:rst)
+  where
+    open :: [Time] -> [Time]
+    open []       = []
+    open (t0:rst) = t0 : closed (t0 + showLen) rst
+
+    closed :: Time -> [Time] -> [Time]
+    closed _expiry [] = []
+    closed expiry (t1:rst)
+      | t1 < expiry = expiry : closed (expiry + showLen) (dropWhile (< expiry) rst)
+      | otherwise   = open (t1:rst)
 
 
 -- | Take events up to AND INCLUDING the current moment in time.
 -- The answer is only FINAL iff all local clocks have reached this time.
 unstableLogPrefix :: Time -> Log -> [(Time, TID)]
 unstableLogPrefix t lg =
-    trace ("  log prefix of " ++ show lg ++ ", time " ++ show t ++ " yields " ++ show set) $
-          S.toList set
- where set = S.takeWhileAntitone (\(ti,_) -> ti <= t) lg
+  trace ("  log prefix of " ++ show lg ++ ", time " ++ show t ++ " yields " ++ show set) $
+        S.toList set
+  where
+    set :: Log
+    set = S.takeWhileAntitone (\(ti,_) -> ti <= t) lg
 
 
 tickN :: Time -> TID -> State -> State
 tickN delta (TID i) (State tl l1)
   | delta >= 0 = State (fr ++ (old + delta) : back) l1
   | otherwise  = error ("impossible, cannot tick a negative amount: " ++ show delta)
-  where (fr, old : back) = L.splitAt i tl
+  where
+    fr, back :: [Time]
+    old :: Time
+    (fr, old : back) = L.splitAt i tl
 
 ex1 :: Maybe State
 ex1 = do
@@ -311,8 +331,12 @@ interp prgs = go bottom (zip [TID 0..] prgs)
 -- | Do I have the local minumim instruction count of the given set of threads?
 amLMIC :: TID -> Set TID -> State -> Bool
 amLMIC myi set st = all (>= myt) oths
-  where myt = myTime myi st
-        oths = [ myTime i st | i <- S.toList set]
+  where
+    myt :: Time
+    myt = myTime myi st
+
+    oths :: [Time]
+    oths = [ myTime i st | i <- S.toList set]
 
 -- Try2: a simple model-checker that explores all states.
 ------------------------------------------------------------
@@ -325,70 +349,77 @@ interp2 :: Prog -> ( Set (State, Oplog)
 interp2 ops =
     ( S.map (\(a, _, b)  -> (a, b)) done
     , S.map (\(s, p, ol) -> (s, dense numThreads p, ol)) unreached )
- where
-  numThreads = length ops
-  done = S.filter (\(s, p, _) -> isProgDone s p) final
-  -- HACK: need a better solution for bottom that doesn't fix the number of threads:
-  bot' = case bottom of
-           State tv lg -> State (L.take numThreads tv) lg
-  (final, unreached) = explore defaultFuel S.empty
-                         (S.singleton (bot',zip [TID 0..] ops, Seq.empty))
+  where
+    numThreads :: Int
+    numThreads = length ops
 
-  -- Search K levels out in the graph:
-  explore :: Int -> Set Conf -> Set Conf -> (Set Conf, Set Conf)
-  explore fuel visited next
-      | fuel == 0 || S.null next = (visited, next)
-      | otherwise =
-        trace ("\n     **** EXPLORE ****   visited "
-               ++ show (S.size visited) ++ " next up: " ++ show (S.size next)) $
-              let next'    = S.unions $ L.map expand (S.toList next)
-                  visited' = S.union visited next
-                  whatsnew = S.difference next' visited'
-              in explore (fuel - 1) visited' whatsnew
+    done :: Set Conf
+    done = S.filter (\(s, p, _) -> isProgDone s p) final
 
-  -- | Enumerate reachable states by one reduction.
-  expand :: Conf -> Set Conf
-  expand (s0, ps0, ol) =
-    trace ("\n EXPAND STATE! Live threads " ++ show ps0 ++ " state " ++ show s0) $
-    S.fromList $ catMaybes $
-    [ -- TODO: This case is partial!
-      case L.splitAt thrd ps0 of
-       -- The thread is tapped out of ops. Bump its clock to show it won't be
-       -- doing anything else:
-       (frnt, (myid, []) : bk) ->
-         Just (tickN inf myid s0, frnt ++ bk, ol)
-       (frnt, (myid, op:rst) : bk) ->
-         let _myt      = myTime myid s0
-             remaining = (frnt ++ (myid, rst) : bk) -- Ops left IF we reduce.
-         in case op of
-            Open -> -- May not reduce yet; must be able to ascertain next showtime.
-              case openResource myid s0 of
-                Nothing -> trace (" X Can't openResource now " ++ show (myid, s0))
-                           Nothing
-                Just (s1, showStrt) ->
-                  -- We go to the BlockedOpen state even IF it could reduce immediately:
-                  Just (s1, frnt ++ (myid, BlockedOpen showStrt : rst) : bk, ol)
+    -- HACK: need a better solution for bottom that doesn't fix the number of threads:
+    bot' :: State
+    bot' = case bottom of
+             State tv lg -> State (L.take numThreads tv) lg
 
-            BlockedOpen showStrt ->
-              -- We must make sure that all threads have reached the start of the show
-              -- to ensure there will be no more joiners.
-              case readParticipants showStrt s0 of
-                Nothing -> trace (show myid ++ ": expand: other clocks not up to showtime "
-                                            ++ show showStrt ++ " in state:\n  " ++ show s0
-                                            ++ " oplog " ++ show ol)
-                                 Nothing
-                Just locals ->
-                  -- Here's the MAGIC, we don't need to wait for
-                  -- GMIC in order to reduce this operation, LMIC suffices:
-                  if amLMIC myid locals s0
-                  then -- REDUCE!
-                       Just (s0, remaining, ol |> (OpInst myid (myTime myid s0) Open))
-                  else Nothing
+    final, unreached :: Set Conf
+    (final, unreached) = explore defaultFuel S.empty
+                           (S.singleton (bot',zip [TID 0..] ops, Seq.empty))
 
-            -- Compute ops are non-blocking, they can always step:
-            Compute dt -> Just (tickN dt myid s0, remaining, ol)
-    | thrd <- [0..L.length ps0 - 1] -- Try to take a step on each thread.
-    ]
+    -- Search K levels out in the graph:
+    explore :: Int -> Set Conf -> Set Conf -> (Set Conf, Set Conf)
+    explore fuel visited next
+        | fuel == 0 || S.null next = (visited, next)
+        | otherwise =
+          trace ("\n     **** EXPLORE ****   visited "
+                 ++ show (S.size visited) ++ " next up: " ++ show (S.size next)) $
+                let next'    = S.unions $ L.map expand (S.toList next)
+                    visited' = S.union visited next
+                    whatsnew = S.difference next' visited'
+                in explore (fuel - 1) visited' whatsnew
+
+    -- | Enumerate reachable states by one reduction.
+    expand :: Conf -> Set Conf
+    expand (s0, ps0, ol) =
+      trace ("\n EXPAND STATE! Live threads " ++ show ps0 ++ " state " ++ show s0) $
+      S.fromList $ catMaybes $
+      [ -- TODO: This case is partial!
+        case L.splitAt thrd ps0 of
+         -- The thread is tapped out of ops. Bump its clock to show it won't be
+         -- doing anything else:
+         (frnt, (myid, []) : bk) ->
+           Just (tickN inf myid s0, frnt ++ bk, ol)
+         (frnt, (myid, op:rst) : bk) ->
+           let _myt      = myTime myid s0
+               remaining = (frnt ++ (myid, rst) : bk) -- Ops left IF we reduce.
+           in case op of
+              Open -> -- May not reduce yet; must be able to ascertain next showtime.
+                case openResource myid s0 of
+                  Nothing -> trace (" X Can't openResource now " ++ show (myid, s0))
+                             Nothing
+                  Just (s1, showStrt) ->
+                    -- We go to the BlockedOpen state even IF it could reduce immediately:
+                    Just (s1, frnt ++ (myid, BlockedOpen showStrt : rst) : bk, ol)
+
+              BlockedOpen showStrt ->
+                -- We must make sure that all threads have reached the start of the show
+                -- to ensure there will be no more joiners.
+                case readParticipants showStrt s0 of
+                  Nothing -> trace (show myid ++ ": expand: other clocks not up to showtime "
+                                              ++ show showStrt ++ " in state:\n  " ++ show s0
+                                              ++ " oplog " ++ show ol)
+                                   Nothing
+                  Just locals ->
+                    -- Here's the MAGIC, we don't need to wait for
+                    -- GMIC in order to reduce this operation, LMIC suffices:
+                    if amLMIC myid locals s0
+                    then -- REDUCE!
+                         Just (s0, remaining, ol |> (OpInst myid (myTime myid s0) Open))
+                    else Nothing
+
+              -- Compute ops are non-blocking, they can always step:
+              Compute dt -> Just (tickN dt myid s0, remaining, ol)
+      | thrd <- [0..L.length ps0 - 1] -- Try to take a step on each thread.
+      ]
 
 -- | TODO: switch to counting individual expand calls, not levels in BFS
 defaultFuel :: Int
@@ -410,22 +441,28 @@ type LabeledProg = [(TID, [Op])]
 -- | Convert from sparse to dense representation.
 dense :: Int -> LabeledProg -> Prog
 dense n prs = [ maybe [] id (M.lookup (TID i) mp) | i <- [0..n-1] ]
-  where mp = M.fromList prs
+  where
+    mp :: Map TID [Op]
+    mp = M.fromList prs
 
 -- | A configuration while we are evaluating.
 type Conf = (State, LabeledProg, Oplog)
 
-summarize :: (Set (State, Oplog), Set (State, Prog, Oplog)) -> (Maybe Oplog, Int)
+summarize :: ( Set (State, Oplog)
+             , Set (State, Prog, Oplog) )
+          -> (Maybe Oplog, Int)
 summarize (s1,s2) =
-    case S.toList logs of
-      [ans] -> (Just ans, S.size s2)
-      []    -> (Nothing, S.size s2)
-      ls    -> error $ "Impossible! Nondeterministic outcome!:\n" ++ unlines (L.map show ls)
-  where logs = S.map snd s1
+  case S.toList logs of
+    [ans] -> (Just ans, S.size s2)
+    []    -> (Nothing, S.size s2)
+    ls    -> error $ "Impossible! Nondeterministic outcome!:\n" ++ unlines (L.map show ls)
+  where
+    logs :: Set Oplog
+    logs = S.map snd s1
 
 -- | A simple summary of a run, what order did threads issue operations.
 threadOrder :: Prog -> [Int]
 threadOrder p =
-   case summarize (interp2 p) of
-     (Nothing,n) -> error $ "Not enough fuel to reduce, leftover states: " ++ show n
-     (Just ol,_) -> L.map (\(OpInst (TID i) _ _) -> i) (Fld.toList ol)
+  case summarize (interp2 p) of
+    (Nothing,n) -> error $ "Not enough fuel to reduce, leftover states: " ++ show n
+    (Just ol,_) -> L.map (\(OpInst (TID i) _ _) -> i) (Fld.toList ol)
