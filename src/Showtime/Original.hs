@@ -37,7 +37,7 @@ traceM s = seq (trace s) (pure ())
 -- only because they print more concisely.
 type Time = Double -- LH refinement: non-negative
 
--- | The vector of per-thread times.
+-- | A 'Map' of per-thread times.
 --
 -- NOTE: There are two competing notions of what it means for thread @i@
 -- to have time @T@.
@@ -51,7 +51,7 @@ type Time = Double -- LH refinement: non-negative
 -- IMHO the first is more natural with a discrete formulation, and the
 -- second with a continuous one.  Here we use the continuous
 -- formulation and the second option.
-type TimeVec = [Time]
+type TimeMap = Map TID Time
 
 epsilon :: Time
 epsilon = 0.1
@@ -89,11 +89,11 @@ type Log = Set (Time, TID)
 -- type NextExpiry = (Time -> Maybe Time)
 
 -- | The state of the lvar is a pair.
-data State = State TimeVec Log
+data State = State TimeMap Log
   deriving (Show, Ord, Eq)
 
 bound :: Int -> State -> State
-bound n (State tv lg) = State (L.take n tv) lg
+bound n (State tv lg) = State (M.take n tv) lg
 
 instance JoinSemiLattice State where
   -- Note, could make this partial to encode the constraint that we
@@ -101,12 +101,12 @@ instance JoinSemiLattice State where
   -- based on our current clock. This constraint needs to live
   -- somewhere.
   State t1 l1 \/ State t2 l2 =
-    State (zipWith max t1 t2) (S.union l1 l2)
+    State (M.unionWith max t1 t2) (S.union l1 l2)
 
 instance BoundedJoinSemiLattice State where
   -- FIXME: adding "implicit zeros" for a sparse representation would
   -- fix the need for an infinite data structure here.
-  bottom = State [ myEpsilon i | i <- [TID 0..]] S.empty
+  bottom = State M.empty S.empty
 
 -- Proofs should be easy:
 --   associative:
@@ -120,7 +120,9 @@ tick :: TID -> State -> State
 tick = tickN 1
 
 myTime :: TID -> State -> Time
-myTime (TID i) (State tv _) = tv !! i
+myTime myi (State tv _) =
+  case M.lookup myi tv of
+    Just t -> t
 
 -- | Gain access to the resource. May advance our clocks to represent
 -- logical waiting, and may "block" for more information by returning Nothing.
@@ -241,13 +243,9 @@ unstableLogPrefix t lg =
 
 
 tickN :: Time -> TID -> State -> State
-tickN delta (TID i) (State tl l1)
-  | delta >= 0 = State (fr ++ (old + delta) : back) l1
-  | otherwise  = error ("impossible, cannot tick a negative amount: " ++ show delta)
-  where
-    fr, back :: [Time]
-    old :: Time
-    (fr, old : back) = L.splitAt i tl
+tickN delta myi (State tl l1)
+  | delta >= 0 = State (M.adjust (+ delta) myi tl) l1
+  | otherwise  = error $ "impossible, cannot tick a negative amount: " ++ show delta
 
 ex1 :: Maybe State
 ex1 = do
@@ -357,13 +355,13 @@ interp2 ops =
     done = S.filter (\(s, p, _) -> isProgDone s p) final
 
     -- HACK: need a better solution for bottom that doesn't fix the number of threads:
-    bot' :: State
-    bot' = case bottom of
-             State tv lg -> State (L.take numThreads tv) lg
+    startState :: State
+    startState = State (M.fromList $ L.take numThreads [ (i, myEpsilon i) | i <- [TID 0..] ])
+                       S.empty
 
     final, unreached :: Set Conf
     (final, unreached) = explore defaultFuel S.empty
-                           (S.singleton (bot',zip [TID 0..] ops, Seq.empty))
+                           (S.singleton (startState, zip [TID 0..] ops, Seq.empty))
 
     -- Search K levels out in the graph:
     explore :: Int -> Set Conf -> Set Conf -> (Set Conf, Set Conf)
