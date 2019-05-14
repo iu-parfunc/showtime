@@ -82,7 +82,7 @@ newtype TID = TID Int deriving (Eq, Show, Ord, Read, Enum)
 fromTID :: TID -> Int
 fromTID (TID i) = i
 
-type Log = Set (Time,TID)
+type Log = Set (Time, TID)
 
 -- | A partial function that maps the current (local) time onto the
 -- next when the resource is free.
@@ -139,18 +139,18 @@ openResource me s0@(State tv lg) =
         lg2 = S.insert (myt0, me) lg
         s1  = tickN openTimeDelta me (State tv lg2) in
     trace (show me ++ ": openResource: new log, new state: " ++ show (lg2, s1)) $ do
-     t1 <- getNextShow me s1
-     -- case readParticipants t1 s1 of
-     --   Nothing -> trace (show me ++ ": openResource: other clocks not up to showtime "
-     --                      ++ show t1 ++ " in state:\n  " ++ show s1)
-     --              Nothing
-     --   Just _ ->
-     let myJoinTime = t1 + myEpsilon me in
-        trace (show me ++ ": openResource: Computed next show " ++ show t1
-               ++ " with my offset: " ++ show myJoinTime) $
-              if t1 > myt0
-              then return (tickN (myJoinTime - myt0) me s1, t1)
-              else return (s1, t1)
+      t1 <- getNextShow me s1
+      -- case readParticipants t1 s1 of
+      --   Nothing -> trace (show me ++ ": openResource: other clocks not up to showtime "
+      --                      ++ show t1 ++ " in state:\n  " ++ show s1)
+      --              Nothing
+      --   Just _ ->
+      let myJoinTime = t1 + myEpsilon me
+      trace (show me ++ ": openResource: Computed next show " ++ show t1
+             ++ " with my offset: " ++ show myJoinTime) $
+            if t1 > myt0
+            then return (tickN (myJoinTime - myt0) me s1, t1)
+            else return (s1, t1)
 
 
 -- Implementation --------------------------------------------------------------
