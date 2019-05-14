@@ -5,6 +5,10 @@ Require Import MSets MSets.MSetProperties.
 Require Import QArith.
 Require Import Structures.Equalities Structures.Orders.
 
+Module Max_Nat_as_OT := PairOrderedType Max_as_OT Nat_as_OT.
+Module S  := Make Max_Nat_as_OT.
+Module VS := VMSet Max_Nat_as_OT S.
+
 Definition Time := Max.
 Definition TimeVec := Stream Time.
 Definition TID := nat.
@@ -64,18 +68,18 @@ Instance State_VJSL : VJoinSemiLattice State := {}.
 Proof.
 - destruct x, y, z. split.
   + destruct (VJSL_Stream (a := Max)). apply jslAssociativity.
-  + destruct S_VJSL. apply jslAssociativity.
+  + destruct VS.VJSL. apply jslAssociativity.
 - destruct x, y. split.
   + destruct (VJSL_Stream (a := Max)). apply jslCommutativity.
-  + destruct S_VJSL. apply jslCommutativity.
+  + destruct VS.VJSL. apply jslCommutativity.
 - destruct x. split.
   + destruct (VJSL_Stream (a := Max)). apply jslIdempotency.
-  + destruct S_VJSL. apply jslIdempotency.
+  + destruct VS.VJSL. apply jslIdempotency.
 Qed.
 
 Instance State_VBJSL : VBoundedJoinSemiLattice State := {}.
 Proof.
   destruct x. split.
   - admit.
-  - destruct S_VBJSL. apply bjslIdentity.
+  - destruct VS.VBJSL. apply bjslIdentity.
 Admitted.
