@@ -32,4 +32,5 @@ nra.cache
 # Things that aren't part of GitHub's standard .gitignore template,
 # for whatever reason
 .coqdeps.d
-Makefile.conf
+Makefile.coq
+Makefile.coq.conf
