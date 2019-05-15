@@ -28,3 +28,8 @@ lia.cache
 nia.cache
 nlia.cache
 nra.cache
+
+# Things that aren't part of GitHub's standard .gitignore template,
+# for whatever reason
+.coqdeps.d
+Makefile.conf
