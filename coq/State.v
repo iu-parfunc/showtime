@@ -1,36 +1,38 @@
-From Showtime Require Import Lattice Max MSet Stream Vec.
+From Showtime Require Import Lattice Max MMap MSet Stream Vec.
 Require Import Classes.RelationClasses Setoid SetoidClass.
 Require Import Lists.Streams.
-Require Import MSets MSets.MSetProperties.
+Require MMaps.MMapList MMaps.MMapFacts.
+Require MSets.MSetAVL MSets.MSetProperties.
 Require Import QArith.
-Require Import Structures.Equalities Structures.Orders.
+Require Import Structures.Equalities Structures.Orders Structures.OrdersEx.
 
 Module Max_Nat_as_OT := PairOrderedType Max_as_OT Nat_as_OT.
-Module S  := Make Max_Nat_as_OT.
+Module S  := MSets.MSetAVL.Make Max_Nat_as_OT.
 Module VS := VMSet Max_Nat_as_OT S.
+Module VMaxCodomain <: VCodomain Max_as_OT.
+  Instance Setoid_D : Setoid Max := {}.
+  Instance JSL_D : JoinSemiLattice Max := jslMax.
+  Instance BJSL_D : BoundedJoinSemiLattice Max := bjslMax.
+  Instance VJSL_D : VJoinSemiLattice Max := vjslMax.
+  Instance VBJSL_D : VBoundedJoinSemiLattice Max := vbjslMax.
+  Theorem dequiv_is_deq : forall x y, equiv x y = MaxEq x y.
+  Proof. auto. Qed.
+End VMaxCodomain.
+Module VM := VMMap Nat_as_OT Max_as_OT VMaxCodomain.
+Module M  := VM.M.
 
 Definition Time := Max.
-Definition TimeVec := Stream Time.
+Definition TimeMap := M.t.
 Definition TID := nat.
 Definition Log := S.t.
 
-CoFixpoint iterate {a : Type} (f : a -> a) (x : a) : Stream a :=
-  Cons x (iterate f (f x)).
-
-Definition naturals : Stream nat := iterate S O.
-
-Definition epsilon : Time := mkMax 1 10.
-
-Definition myEpsilon (n : TID) : Time :=
-  MaxMult (mkMax (N.of_nat (S n)) 1) epsilon.
-
 Inductive State : Type :=
-| MkState : TimeVec -> Log -> State.
+| MkState : TimeMap -> Log -> State.
 
 Definition StateEq (s1 s2 : State) : Prop :=
   match s1, s2 with
   | MkState t1 l1, MkState t2 l2 =>
-    StreamEq MaxEq t1 t2 /\ S.Equal l1 l2
+    M.eq t1 t2 /\ S.Equal l1 l2
   end.
 
 Instance StateEqReflexive : Reflexive StateEq := {}.
@@ -61,25 +63,25 @@ Instance State_JSL : JoinSemiLattice State := {
 }.
 
 Instance State_BJSL : BoundedJoinSemiLattice State := {
-  bottom := MkState (Streams.map myEpsilon naturals) S.empty
+  bottom := MkState bottom bottom
 }.
 
 Instance State_VJSL : VJoinSemiLattice State := {}.
 Proof.
 - destruct x, y, z. split.
-  + destruct (VJSL_Stream (a := Max)). apply jslAssociativity.
+  + destruct VM.VJSL. apply jslAssociativity.
   + destruct VS.VJSL. apply jslAssociativity.
 - destruct x, y. split.
-  + destruct (VJSL_Stream (a := Max)). apply jslCommutativity.
+  + destruct VM.VJSL. apply jslCommutativity.
   + destruct VS.VJSL. apply jslCommutativity.
 - destruct x. split.
-  + destruct (VJSL_Stream (a := Max)). apply jslIdempotency.
+  + destruct VM.VJSL. apply jslIdempotency.
   + destruct VS.VJSL. apply jslIdempotency.
 Qed.
 
 Instance State_VBJSL : VBoundedJoinSemiLattice State := {}.
 Proof.
   destruct x. split.
-  - admit.
+  - destruct VM.VBJSL. apply bjslIdentity.
   - destruct VS.VBJSL. apply bjslIdentity.
-Admitted.
+Qed.

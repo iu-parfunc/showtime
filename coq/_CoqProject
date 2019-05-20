@@ -1,6 +1,7 @@
 -Q . Showtime
 ./Lattice.v
 ./Max.v
+./MMap.v
 ./MSet.v
 ./Stream.v
 ./Vec.v

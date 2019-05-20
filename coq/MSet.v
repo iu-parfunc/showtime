@@ -1,4 +1,4 @@
-From Showtime Require Import Lattice Max.
+From Showtime Require Import Lattice.
 Require Import Classes.RelationClasses SetoidClass.
 Require Import MSets MSets.MSetProperties.
 
