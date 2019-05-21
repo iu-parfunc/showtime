@@ -3,5 +3,7 @@
 ./Max.v
 ./MMap.v
 ./MSet.v
+./Showtime.v
+./State.v
 ./Stream.v
 ./Vec.v

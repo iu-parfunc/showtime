@@ -8,6 +8,8 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
   Module M      := Make_ord X D.
   Module MProps := WProperties_fun X M.MapS.
 
+  (* Useful tactics *)
+
   Hint Resolve X.compare_spec D.compare_spec : cdestruct.
 
   Ltac cdestruct X :=
@@ -16,6 +18,59 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
      assert (H: CompareSpec e1 e2 e3 X); subst e1; subst e2; subst e3;
       [eauto with cdestruct
       | destruct H as [H|H|H] ].
+
+  (* Some useful auxiliary definitions *)
+
+  Definition raw_adjusti (f : X.t -> D.t -> D.t) (k : X.t)
+      : M.MapS.Raw.t D.t -> M.MapS.Raw.t D.t :=
+    fix go (m : M.MapS.Raw.t D.t) : M.MapS.Raw.t D.t :=
+      match m with
+      | nil => nil
+      | (kx, x) :: xs =>
+          match X.compare k kx with
+          | Eq => (kx, f kx x) :: xs
+          | _  => (kx,      x) :: go xs
+          end
+      end.
+
+  Definition raw_adjust (f : D.t -> D.t)
+      : X.t -> M.MapS.Raw.t D.t -> M.MapS.Raw.t D.t :=
+    raw_adjusti (fun _ x => f x).
+
+  Lemma adjusti_HdRel :
+    forall (f : X.t -> D.t -> D.t) (k1 k2 : X.t) (v : D.t) (m : M.MapS.Raw.t D.t),
+    HdRel M.MapS.Raw.PX.ltk (k1, v) m -> HdRel M.MapS.Raw.PX.ltk (k1, v) (raw_adjusti f k2 m).
+  Proof.
+    intros. induction H; simpl; auto.
+    destruct b. cdestruct (X.compare k2 t); auto.
+  Qed.
+
+  Lemma HdRel_ltk_value_unimportant :
+    forall {k : X.t} {v1 v2 : D.t} {m : M.MapS.Raw.t D.t},
+    HdRel M.MapS.Raw.PX.ltk (k, v1) m -> HdRel M.MapS.Raw.PX.ltk (k, v2) m.
+  Proof. intros. destruct H; auto. Qed.
+
+  Lemma adjusti_Sorted :
+    forall (f : X.t -> D.t -> D.t) (k : X.t) (m : M.MapS.Raw.t D.t),
+    Sorted M.MapS.Raw.PX.ltk m -> Sorted M.MapS.Raw.PX.ltk (raw_adjusti f k m).
+  Proof.
+    intros. induction H; simpl; auto. destruct a.
+    cdestruct (X.compare k t); constructor; try (apply adjusti_HdRel); auto.
+    apply (HdRel_ltk_value_unimportant H0).
+  Qed.
+
+  Lemma adjust_Sorted :
+    forall (f : D.t -> D.t) (k : X.t) (m : M.MapS.Raw.t D.t),
+    Sorted M.MapS.Raw.PX.ltk m -> Sorted M.MapS.Raw.PX.ltk (raw_adjust f k m).
+  Proof. intros. apply adjusti_Sorted. auto. Qed.
+
+  Definition adjusti (f : X.t -> D.t -> D.t) (k : X.t) (m : M.MapS.t D.t) : M.MapS.t D.t :=
+    M.MapS.Mk (adjusti_Sorted f k m.(M.MapS.this) m.(M.MapS.sorted)).
+
+  Definition adjust (f : D.t -> D.t) (k : X.t) (m : M.MapS.t D.t) : M.MapS.t D.t :=
+    M.MapS.Mk (adjust_Sorted f k m.(M.MapS.this) m.(M.MapS.sorted)).
+
+  (* Proofs and stuff *)
 
   Instance eq_list_refl : Reflexive M.eq_list := {}.
   Proof.
