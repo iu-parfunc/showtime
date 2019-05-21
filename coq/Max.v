@@ -16,8 +16,23 @@ Proof.
   - apply Zle_0_pos.
 Qed.
 
-Definition mkMax (numer : N) (denom : positive) : Max :=
+Lemma ZofNatNonNeg :
+  forall (numer : nat), (0 <= Z.of_nat numer)%Z.
+Proof.
+  destruct numer; simpl.
+  - reflexivity.
+  - apply Zle_0_pos.
+Qed.
+
+Definition mkMaxN (numer : N) (denom : positive) : Max :=
   MkMax (Qmake (Z.of_N numer) denom) (ZofNNonNeg numer).
+
+Definition N_to_Max (n : N) : Max := mkMaxN n 1.
+
+Definition mkMaxNat (numer : nat) (denom : positive) : Max :=
+  MkMax (Qmake (Z.of_nat numer) denom) (ZofNatNonNeg numer).
+
+Definition nat_to_Max (n : nat) : Max := mkMaxNat n 1.
 
 Definition MaxEq (m1 m2 : Max) : Prop :=
   match m1, m2 with
@@ -28,6 +43,32 @@ Definition MaxLt (m1 m2 : Max) : Prop :=
   match m1, m2 with
   | MkMax q1 _, MkMax q2 _ => Qlt q1 q2
   end.
+
+Notation "m1 < m2" := (MaxLt m1 m2) (at level 70).
+
+Definition Qlt_bool (x y : Q) : bool :=
+  (Qnum x * QDen y <? Qnum y * QDen x)%Z.
+
+Definition MaxLtb (m1 m2 : Max) : bool :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qlt_bool q1 q2
+  end.
+
+Notation "m1 <? m2" := (MaxLtb m1 m2) (at level 70).
+
+Definition MaxLe (m1 m2 : Max) : Prop :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qle q1 q2
+  end.
+
+Notation "m1 <= m2" := (MaxLe m1 m2) (at level 70).
+
+Definition MaxLeb (m1 m2 : Max) : bool :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qle_bool q1 q2
+  end.
+
+Notation "m1 <=? m2" := (MaxLeb m1 m2) (at level 70).
 
 Definition MaxCompare (m1 m2 : Max) : comparison :=
   match m1, m2 with
@@ -51,22 +92,40 @@ Proof.
   destruct Qnum; destruct Qnum0; simpl; try contradiction; try omega; try (apply Zle_0_pos).
 Qed.
 
+Lemma maxAddNonNeg :
+  forall (q1 q2 : Q),
+  (0 <= Qnum q1)%Z -> (0 <= Qnum q2)%Z -> (0 <= Qnum (q1 + q2))%Z.
+Proof.
+  destruct q1, q2. simpl. intros.
+  destruct Qnum; destruct Qnum0; simpl; try contradiction; try omega; try (apply Zle_0_pos).
+Qed.
+
+Definition MaxAdd (m1 m2 : Max) : Max :=
+  match m1, m2 with
+  | MkMax q1 q1NonNeg, MkMax q2 q2NonNeg =>
+    MkMax (q1 + q2) (maxAddNonNeg q1 q2 q1NonNeg q2NonNeg)
+  end.
+
+Notation "m1 + m2" := (MaxAdd m1 m2) (at level 50, left associativity).
+
 Definition MaxMult (m1 m2 : Max) : Max :=
   match m1, m2 with
   | MkMax q1 q1NonNeg, MkMax q2 q2NonNeg =>
     MkMax (q1 * q2) (maxMultNonNeg q1 q2 q1NonNeg q2NonNeg)
   end.
 
-Definition zero : Max := mkMax 0 1.
+Notation "m1 * m2" := (MaxMult m1 m2) (at level 40, left associativity).
+
+Definition MaxZero : Max := nat_to_Max 0.
 
 Lemma Qlt_alt' :
-  forall {q1 q2 : Q}, q1 < q2 -> (q1 ?= q2) = Lt.
+  forall {q1 q2 : Q}, (q1 < q2)%Q -> (q1 ?= q2) = Lt.
 Proof.
   intros. destruct (Qlt_alt q1 q2). auto.
 Qed.
 
 Lemma Qgt_alt' :
-  forall {q1 q2 : Q}, q2 < q1 -> (q1 ?= q2) = Gt.
+  forall {q1 q2 : Q}, (q2 < q1)%Q -> (q1 ?= q2) = Gt.
 Proof.
   intros. destruct (Qgt_alt q1 q2). auto.
 Qed.
@@ -88,8 +147,8 @@ Ltac cdestruct X :=
 
 Ltac rewrite_Qeqs :=
   repeat match goal with
-  | H : ?q1 <  ?q2 |- context[?q1 ?= ?q2] => rewrite (Qlt_alt' H)
-  | H : ?q1 <  ?q2 |- context[?q2 ?= ?q1] => rewrite (Qgt_alt' H)
+  | H : (?q1 <  ?q2)%Q |- context[?q1 ?= ?q2] => rewrite (Qlt_alt' H)
+  | H : (?q1 <  ?q2)%Q |- context[?q2 ?= ?q1] => rewrite (Qgt_alt' H)
   | H : (?q1 == ?q2)%Q |- context[?q1 ?= ?q2] => rewrite (Qeq_alt' H)
   | H : (?q1 == ?q2)%Q |- context[?q2 ?= ?q1] => rewrite (Qeq_alt' (eq_sym H))
   | |- context[?q ?= ?q] => rewrite (Qeq_alt' (Qeq_refl q))
@@ -99,7 +158,7 @@ Ltac crush_Q :=
   simpl; rewrite_Qeqs; simpl; q_order.
 
 Lemma Qlt_0_neg :
-  forall (q : Q), q < 0 -> (Qnum q < 0)%Z.
+  forall (q : Q), (q < 0)%Q -> (Qnum q < 0)%Z.
 Proof.
   intros. destruct q. simpl. destruct Qnum; auto.
 Qed.
@@ -125,7 +184,7 @@ Proof.
 Qed.
 
 Theorem max_identity :
-  forall (m : Max), MaxEq (max m zero) m.
+  forall (m : Max), MaxEq (max m MaxZero) m.
 Proof.
   destruct m. simpl. cdestruct (q ?= 0); try crush_Q.
   apply Qlt_0_neg in H. omega.
@@ -136,7 +195,7 @@ Instance jslMax : JoinSemiLattice Max := {
 }.
 
 Instance bjslMax : BoundedJoinSemiLattice Max := {
-  bottom := zero
+  bottom := MaxZero
 }.
 
 Instance maxEqReflexive : Reflexive MaxEq := {}.
