@@ -212,3 +212,12 @@ Module Max_as_OT <: OrderedType.
   Lemma compare_spec : forall x y : t, CompareSpec (eq x y) (lt x y) (lt y x) (compare x y).
   Proof. destruct x, y. simpl. cdestruct (q ?= q0); auto. Qed.
 End Max_as_OT.
+
+Module Max_as_OL <: OrderedLattice Max_as_OT.
+  Instance Setoid_D : Setoid Max := {}.
+  Instance JSL_D : JoinSemiLattice Max := jslMax.
+  Instance BJSL_D : BoundedJoinSemiLattice Max := bjslMax.
+  Instance VJSL_D : VJoinSemiLattice Max := vjslMax.
+  Instance VBJSL_D : VBoundedJoinSemiLattice Max := vbjslMax.
+  Theorem dequiv_is_deq : forall x y, equiv x y = MaxEq x y. Proof. auto. Qed.
+End Max_as_OL.

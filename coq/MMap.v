@@ -2,19 +2,9 @@ From Showtime Require Import Lattice.
 Require Import Classes.RelationClasses.
 Require Import MMaps.MMapList MMaps.MMapFacts.
 Require SetoidClass. (* (==) from SetoidClass clashes with stuff from MMaps. Ugh. *)
-
 Module SC := SetoidClass.
 
-Module Type VCodomain (D : OrderedType).
-  Declare Instance Setoid_D : SC.Setoid D.t.
-  Declare Instance JSL_D : JoinSemiLattice D.t.
-  Declare Instance BJSL_D : BoundedJoinSemiLattice D.t.
-  Declare Instance VJSL_D : VJoinSemiLattice D.t.
-  Declare Instance VBJSL_D : VBoundedJoinSemiLattice D.t.
-  Parameter dequiv_is_deq : forall x y, SC.equiv (A := D.t) x y = D.eq x y.
-End VCodomain.
-
-Module VMMap (X : OrderedType) (D : OrderedType) (Import P: VCodomain D).
+Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
   Module M      := Make_ord X D.
   Module MProps := WProperties_fun X M.MapS.
 

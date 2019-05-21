@@ -9,16 +9,7 @@ Require Import Structures.Equalities Structures.Orders Structures.OrdersEx.
 Module Max_Nat_as_OT := PairOrderedType Max_as_OT Nat_as_OT.
 Module S  := MSets.MSetAVL.Make Max_Nat_as_OT.
 Module VS := VMSet Max_Nat_as_OT S.
-Module VMaxCodomain <: VCodomain Max_as_OT.
-  Instance Setoid_D : Setoid Max := {}.
-  Instance JSL_D : JoinSemiLattice Max := jslMax.
-  Instance BJSL_D : BoundedJoinSemiLattice Max := bjslMax.
-  Instance VJSL_D : VJoinSemiLattice Max := vjslMax.
-  Instance VBJSL_D : VBoundedJoinSemiLattice Max := vbjslMax.
-  Theorem dequiv_is_deq : forall x y, equiv x y = MaxEq x y.
-  Proof. auto. Qed.
-End VMaxCodomain.
-Module VM := VMMap Nat_as_OT Max_as_OT VMaxCodomain.
+Module VM := VMMap Nat_as_OT Max_as_OT Max_as_OL.
 Module M  := VM.M.
 
 Definition Time := Max.
