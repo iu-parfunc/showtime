@@ -1,6 +1,6 @@
-{ pkgs ? (import <nixpkgs> {}) }:
+{ pkgs }:
 
-with pkgs.coqPackages_8_9;
+with pkgs.coqPackages_8_8;
 
 pkgs.stdenv.mkDerivation rec {
   name = "coq${coq.coq-version}-mmaps";
