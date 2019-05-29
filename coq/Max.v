@@ -39,6 +39,13 @@ Definition MaxEq (m1 m2 : Max) : Prop :=
   | MkMax q1 _, MkMax q2 _ => Qeq q1 q2
   end.
 
+Notation "m1 == m2" := (MaxEq m1 m2) (at level 70).
+
+Definition MaxEqb (m1 m2 : Max) : bool :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qeq_bool q1 q2
+  end.
+
 Definition MaxLt (m1 m2 : Max) : Prop :=
   match m1, m2 with
   | MkMax q1 _, MkMax q2 _ => Qlt q1 q2
@@ -135,6 +142,42 @@ Lemma Qeq_alt' :
 Proof.
   intros. destruct (Qeq_alt q1 q2). auto.
 Qed.
+
+Lemma Qltb_spec :
+  forall (x y : Q), reflect (x < y)%Q (Qlt_bool x y).
+Proof.
+  intros. unfold Qlt_bool, Z.ltb.
+  destruct (Qcompare x y) eqn:Z; unfold Qcompare in Z; rewrite Z; constructor; auto;
+  intro; unfold Qlt in H; unfold Z.lt in H; rewrite H in Z; discriminate.
+Qed.
+
+Lemma Qleb_spec :
+  forall (x y : Q), reflect (x <= y)%Q (Qle_bool x y).
+Proof.
+  intros. unfold Qle_bool, Z.leb.
+  destruct (Qcompare x y) eqn:Z; unfold Qcompare in Z; rewrite Z; constructor; auto;
+  unfold Qle, Z.le; intro; rewrite H in Z; discriminate.
+Qed.
+
+Lemma Qeqb_spec :
+  forall (x y : Q), reflect (x == y)%Q (Qeq_bool x y).
+Proof.
+  intros. destruct (Q_as_DT.eq_dec x y).
+  - rewrite (Qeq_eq_bool x y q). constructor. auto.
+  - destruct (not_iff_compat (Qeq_bool_iff x y)).
+    rewrite (not_true_is_false (Qeq_bool x y) (H0 n)).
+    constructor. auto.
+Qed.
+
+Hint Resolve Qltb_spec Qleb_spec Qeqb_spec : bdestruct.
+
+Ltac bdestruct X :=
+  let H := fresh in let e := fresh "e" in
+   evar (e: Prop);
+   assert (H: reflect e X); subst e;
+    [eauto with bdestruct
+    | destruct H as [H|H];
+       [ | try first [apply not_lt in H | apply not_le in H]]].
 
 Hint Resolve Qcompare_spec : cdestruct.
 
@@ -280,3 +323,23 @@ Module Max_as_OL <: OrderedLattice Max_as_OT.
   Instance VBJSL_D : VBoundedJoinSemiLattice Max := vbjslMax.
   Theorem dequiv_is_deq : forall x y, equiv x y = MaxEq x y. Proof. auto. Qed.
 End Max_as_OL.
+
+Definition MaxLtbSpec :
+  forall (x y : Max), reflect (x < y) (x <? y).
+Proof. destruct x, y. apply Qltb_spec. Qed.
+
+Definition MaxLeqSpec :
+  forall (x y : Max), reflect (x <= y) (x <=? y).
+Proof. destruct x, y. apply Qleb_spec. Qed.
+
+Definition MaxEqSpec :
+  forall (x y : Max), reflect (x == y) (MaxEqb x y).
+Proof. destruct x, y. apply Qeqb_spec. Qed.
+
+Hint Resolve MaxLtbSpec MaxLeqSpec MaxEqSpec : bdestruct.
+
+Definition MaxCompareSpec :
+  forall (x y : Max), CompareSpec (x == y) (x < y) (y < x) (MaxCompare x y).
+Proof. apply Max_as_OT.compare_spec. Qed.
+
+Hint Resolve MaxCompareSpec : cdestruct.
