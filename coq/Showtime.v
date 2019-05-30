@@ -158,6 +158,8 @@ Proof.
 Defined.
 Scheme OpenAcc_ind_dep   := Induction for OpenAcc   Sort Prop.
 Scheme ClosedAcc_ind_dep := Induction for ClosedAcc Sort Prop.
+Scheme OpenAcc_ind_dep_mut   := Induction for OpenAcc   Sort Prop
+  with ClosedAcc_ind_dep_mut := Induction for ClosedAcc Sort Prop.
 
 Definition open (ls : list Time) : list Time :=
   open' ls (openAcc ls).
@@ -165,52 +167,144 @@ Definition closed (expiry : Time) (ls : list Time) : list Time :=
   closed' expiry ls (closedAcc expiry ls).
 Definition showtimes : list Time -> list Time := open.
 
-(*
-Lemma
-  open'_PI' :
-    forall {l1} (acc1 : OpenAcc l1) {l2} (acc2 : OpenAcc l2),
-    l1 = l2 ->
-    open' l1 acc1 = open' l2 acc2
-with
-  closed'_PI' :
-    forall {expiry1 l1} (acc1 : ClosedAcc expiry1 l1)
-           {expiry2 l2} (acc2 : ClosedAcc expiry2 l2),
-    expiry1 = expiry2 -> l1 = l2 ->
-    closed' expiry1 l1 acc1 = closed' expiry2 l2 acc2.
+Lemma open'_PI' :
+  forall {l1} (acc1 : OpenAcc l1) {l2} (acc2 : OpenAcc l2),
+  l1 = l2 ->
+  open' l1 acc1 = open' l2 acc2.
 Proof.
-- apply (OpenAcc_ind_dep
+  apply (OpenAcc_ind_dep_mut
         (fun (l' : list Time) (acc' : OpenAcc l') =>
          forall (l2 : list Time) (acc2 : OpenAcc l2),
-         l' = l2 -> open' l' acc' = open' l2 acc2)).
-  + apply (OpenAcc_ind_dep
-          (fun (l' : list Time) (acc' : OpenAcc l') =>
-           nil = l' -> open' nil OpenAccNil = open' l' acc'));
-    try discriminate. auto.
-  + intros t0 rst c.
-    apply (OpenAcc_ind_dep
-          (fun (l' : list Time) (acc' : OpenAcc l') =>
-           t0 :: rst = l' -> open' (t0 :: rst) (OpenAccCons t0 rst c) = open' l' acc'));
-    try discriminate. intros.
-    injection H as H1 H2. subst. simpl.
-    rewrite (closed'_PI' (t1 + showLen) rst0 (OpenAcc_inv (OpenAccCons t1 rst0 c)  eq_refl)
-                         (t1 + showLen) rst0 (OpenAcc_inv (OpenAccCons t1 rst0 c0) eq_refl));
-    auto.
-- apply (ClosedAcc_ind_dep
+         l' = l2 -> open' l' acc' = open' l2 acc2)
         (fun (expiry' : Time) (l' : list Time) (acc' : ClosedAcc expiry' l') =>
          forall (expiry2 : Time) (l2 : list Time) (acc2 : ClosedAcc expiry2 l2),
          expiry' = expiry2 -> l' = l2 ->
          closed' expiry' l' acc' = closed' expiry2 l2 acc2)).
-  + intro expiry.
+  - apply (OpenAcc_ind_dep_mut
+          (fun (l' : list Time) (acc' : OpenAcc l') =>
+           nil = l' -> open' nil OpenAccNil = open' l' acc')
+          (fun _ _ _ => True)); try discriminate; auto.
+  - intros t0 rst c ClosedH.
+    apply (OpenAcc_ind_dep_mut
+          (fun (l' : list Time) (acc' : OpenAcc l') =>
+           t0 :: rst = l' -> open' (t0 :: rst) (OpenAccCons t0 rst c) = open' l' acc')
+          (fun _ _ _ => True)); try discriminate; auto. simpl. intros.
+    injection H0 as X Y. subst. f_equal. apply ClosedH; auto.
+  - intro expiry.
+    apply (ClosedAcc_ind_dep_mut
+           (fun _ _ => True)
+           (fun (expiry' : Time) (l' : list Time) (acc' : ClosedAcc expiry' l') =>
+            expiry = expiry' -> nil = l' ->
+            closed' expiry nil (ClosedAccNil expiry) = closed' expiry' l' acc'));
+    try discriminate; auto.
+  - intros expiry t1 rst c ClosedH o OpenH.
+    apply (ClosedAcc_ind_dep_mut
+           (fun _ _ => True)
+           (fun (expiry' : Time) (l' : list Time) (acc' : ClosedAcc expiry' l') =>
+            expiry = expiry' -> t1 :: rst = l' ->
+            closed' expiry (t1 :: rst) (ClosedAccCons expiry t1 rst c o)
+              = closed' expiry' l' acc')); try discriminate; auto. intros. simpl.
+    injection H2 as X Y. subst. bdestruct (t0 <? expiry0).
+    + f_equal. apply ClosedH; auto.
+    + apply OpenH; auto.
+Qed.
+
+Lemma closed'_PI' :
+  forall {expiry1 l1} (acc1 : ClosedAcc expiry1 l1)
+         {expiry2 l2} (acc2 : ClosedAcc expiry2 l2),
+  expiry1 = expiry2 -> l1 = l2 ->
+  closed' expiry1 l1 acc1 = closed' expiry2 l2 acc2.
+Proof.
+  apply (ClosedAcc_ind_dep
+        (fun (expiry' : Time) (l' : list Time) (acc' : ClosedAcc expiry' l') =>
+         forall (expiry2 : Time) (l2 : list Time) (acc2 : ClosedAcc expiry2 l2),
+         expiry' = expiry2 -> l' = l2 ->
+         closed' expiry' l' acc' = closed' expiry2 l2 acc2)).
+  - intro expiry.
     apply (ClosedAcc_ind_dep
           (fun (expiry' : Time) (l' : list Time) (acc' : ClosedAcc expiry' l') =>
            expiry = expiry' -> nil = l' ->
            closed' expiry nil (ClosedAccNil expiry) = closed' expiry' l' acc'));
-    try discriminate. auto.
-  + intros expiry t1 rst c H o.
+    try discriminate. reflexivity.
+  - intros expiry t1 rst c H o.
     apply (ClosedAcc_ind_dep
           (fun (expiry' : Time) (l' : list Time) (acc' : ClosedAcc expiry' l') =>
            expiry = expiry' -> t1 :: rst = l' ->
            closed' expiry (t1 :: rst) (ClosedAccCons expiry t1 rst c o) =
            closed' expiry' l' acc')); try discriminate. intros.
     injection H2 as H3 H4. subst. simpl. bdestruct (t0 <? expiry0).
-*)
+    + f_equal. apply H; auto.
+    + apply open'_PI'. auto.
+Qed.
+
+Lemma open'_PI :
+  forall {l} (acc1 acc2 : OpenAcc l),
+  open' l acc1 = open' l acc2.
+Proof. intros. apply open'_PI'. auto. Qed.
+
+Lemma closed'_PI :
+  forall {expiry l} (acc1 acc2 : ClosedAcc expiry l),
+  closed' expiry l acc1 = closed' expiry l acc2.
+Proof. intros. apply closed'_PI'; auto. Qed.
+
+Theorem open'_nil :
+  forall (acc : OpenAcc nil),
+  open' nil acc = nil.
+Proof. intros. rewrite (open'_PI' acc OpenAccNil); auto. Qed.
+
+Theorem open_nil : open nil = nil.
+Proof. auto. Qed.
+
+Theorem open'_cons :
+  forall {t0 rst} acc1 acc2,
+  open' (t0 :: rst) acc1 = t0 :: closed' (t0 + showLen) rst acc2.
+Proof. intros. rewrite (open'_PI' acc1 (OpenAccCons t0 rst acc2)); auto. Qed.
+
+Theorem open'_cons_alt :
+  forall {t0 rst} acc,
+  open' (t0 :: rst) (OpenAccCons t0 rst acc) = t0 :: closed' (t0 + showLen) rst acc.
+Proof. intros. apply open'_cons. Qed.
+
+Theorem open_cons :
+  forall {t0 rst},
+  open (t0 :: rst) = t0 :: closed (t0 + showLen) rst.
+Proof. intros. apply open'_cons. Qed.
+
+Theorem closed'_nil :
+  forall {expiry} (acc : ClosedAcc expiry nil),
+  closed' expiry nil acc = nil.
+Proof. intros. rewrite (closed'_PI' acc (ClosedAccNil expiry)); auto. Qed.
+
+Theorem closed_nil :
+  forall {expiry},
+  closed expiry nil = nil.
+Proof. auto. Qed.
+
+Theorem closed'_cons :
+  forall {expiry t1 rst} acc1 acc2 acc3,
+  closed' expiry (t1 :: rst) acc1 =
+    if t1 <? expiry
+    then expiry :: closed' (expiry + showLen)
+                           (dropWhile (flip_ltb expiry) rst)
+                           acc2
+    else open' (t1 :: rst) acc3.
+Proof. intros. rewrite (closed'_PI' acc1 (ClosedAccCons _ _ _ acc2 acc3)); auto. Qed.
+
+Theorem closed'_cons_alt :
+  forall {expiry t1 rst} acc1 acc2,
+  closed' expiry (t1 :: rst) (ClosedAccCons expiry t1 rst acc1 acc2) =
+    if t1 <? expiry
+    then expiry :: closed' (expiry + showLen)
+                           (dropWhile (flip_ltb expiry) rst)
+                           acc1
+    else open' (t1 :: rst) acc2.
+Proof. intros. apply closed'_cons. Qed.
+
+Theorem closed_cons :
+  forall {expiry t1 rst},
+  closed expiry (t1 :: rst) =
+    if t1 <? expiry
+    then expiry :: closed (expiry + showLen)
+                          (dropWhile (flip_ltb expiry) rst)
+    else open (t1 :: rst).
+Proof. intros. apply closed'_cons. Qed.
