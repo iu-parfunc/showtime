@@ -4,126 +4,8 @@ Require Import QArith QArith.QOrderedType.
 Require Import SetoidClass.
 Require Import Structures.Equalities Structures.Orders.
 
-(* A "newtype" around Q *)
-Inductive Max : Type :=
-| MkMax : forall (q : Q), (0 <= Qnum q)%Z -> Max.
-
-Lemma ZofNNonNeg :
-  forall (numer : N), (0 <= Z.of_N numer)%Z.
-Proof.
-  destruct numer; simpl.
-  - reflexivity.
-  - apply Zle_0_pos.
-Qed.
-
-Lemma ZofNatNonNeg :
-  forall (numer : nat), (0 <= Z.of_nat numer)%Z.
-Proof.
-  destruct numer; simpl.
-  - reflexivity.
-  - apply Zle_0_pos.
-Qed.
-
-Definition mkMaxN (numer : N) (denom : positive) : Max :=
-  MkMax (Qmake (Z.of_N numer) denom) (ZofNNonNeg numer).
-
-Definition N_to_Max (n : N) : Max := mkMaxN n 1.
-
-Definition mkMaxNat (numer : nat) (denom : positive) : Max :=
-  MkMax (Qmake (Z.of_nat numer) denom) (ZofNatNonNeg numer).
-
-Definition nat_to_Max (n : nat) : Max := mkMaxNat n 1.
-
-Definition MaxEq (m1 m2 : Max) : Prop :=
-  match m1, m2 with
-  | MkMax q1 _, MkMax q2 _ => Qeq q1 q2
-  end.
-
-Notation "m1 == m2" := (MaxEq m1 m2) (at level 70).
-
-Definition MaxEqb (m1 m2 : Max) : bool :=
-  match m1, m2 with
-  | MkMax q1 _, MkMax q2 _ => Qeq_bool q1 q2
-  end.
-
-Definition MaxLt (m1 m2 : Max) : Prop :=
-  match m1, m2 with
-  | MkMax q1 _, MkMax q2 _ => Qlt q1 q2
-  end.
-
-Notation "m1 < m2" := (MaxLt m1 m2) (at level 70).
-
 Definition Qlt_bool (x y : Q) : bool :=
   (Qnum x * QDen y <? Qnum y * QDen x)%Z.
-
-Definition MaxLtb (m1 m2 : Max) : bool :=
-  match m1, m2 with
-  | MkMax q1 _, MkMax q2 _ => Qlt_bool q1 q2
-  end.
-
-Notation "m1 <? m2" := (MaxLtb m1 m2) (at level 70).
-
-Definition MaxLe (m1 m2 : Max) : Prop :=
-  match m1, m2 with
-  | MkMax q1 _, MkMax q2 _ => Qle q1 q2
-  end.
-
-Notation "m1 <= m2" := (MaxLe m1 m2) (at level 70).
-
-Definition MaxLeb (m1 m2 : Max) : bool :=
-  match m1, m2 with
-  | MkMax q1 _, MkMax q2 _ => Qle_bool q1 q2
-  end.
-
-Notation "m1 <=? m2" := (MaxLeb m1 m2) (at level 70).
-
-Definition MaxCompare (m1 m2 : Max) : comparison :=
-  match m1, m2 with
-  | MkMax q1 _, MkMax q2 _ => Qcompare q1 q2
-  end.
-
-Definition max (m1 m2 : Max) : Max :=
-  match m1, m2 with
-  | MkMax q1 _, MkMax q2 _ =>
-    match Qcompare q1 q2 with
-    | Gt => m1
-    | _  => m2
-    end
-  end.
-
-Lemma maxMultNonNeg :
-  forall (q1 q2 : Q),
-  (0 <= Qnum q1)%Z -> (0 <= Qnum q2)%Z -> (0 <= Qnum (q1 * q2))%Z.
-Proof.
-  destruct q1, q2. simpl. intros.
-  destruct Qnum; destruct Qnum0; simpl; try contradiction; try omega; try (apply Zle_0_pos).
-Qed.
-
-Lemma maxAddNonNeg :
-  forall (q1 q2 : Q),
-  (0 <= Qnum q1)%Z -> (0 <= Qnum q2)%Z -> (0 <= Qnum (q1 + q2))%Z.
-Proof.
-  destruct q1, q2. simpl. intros.
-  destruct Qnum; destruct Qnum0; simpl; try contradiction; try omega; try (apply Zle_0_pos).
-Qed.
-
-Definition MaxAdd (m1 m2 : Max) : Max :=
-  match m1, m2 with
-  | MkMax q1 q1NonNeg, MkMax q2 q2NonNeg =>
-    MkMax (q1 + q2) (maxAddNonNeg q1 q2 q1NonNeg q2NonNeg)
-  end.
-
-Notation "m1 + m2" := (MaxAdd m1 m2) (at level 50, left associativity).
-
-Definition MaxMult (m1 m2 : Max) : Max :=
-  match m1, m2 with
-  | MkMax q1 q1NonNeg, MkMax q2 q2NonNeg =>
-    MkMax (q1 * q2) (maxMultNonNeg q1 q2 q1NonNeg q2NonNeg)
-  end.
-
-Notation "m1 * m2" := (MaxMult m1 m2) (at level 40, left associativity).
-
-Definition MaxZero : Max := nat_to_Max 0.
 
 Lemma Qlt_alt' :
   forall {q1 q2 : Q}, (q1 < q2)%Q -> (q1 ?= q2) = Lt.
@@ -187,6 +69,176 @@ Ltac cdestruct X :=
    assert (H: CompareSpec e1 e2 e3 X); subst e1; subst e2; subst e3;
     [eauto with cdestruct
     | destruct H as [H|H|H] ].
+
+(* A "newtype" around Q *)
+Inductive Max : Type :=
+| MkMax : forall (q : Q), (0 <= Qnum q)%Z -> Max.
+
+Lemma ZofNNonNeg :
+  forall (numer : N), (0 <= Z.of_N numer)%Z.
+Proof.
+  destruct numer; simpl.
+  - reflexivity.
+  - apply Zle_0_pos.
+Qed.
+
+Lemma ZofNatNonNeg :
+  forall (numer : nat), (0 <= Z.of_nat numer)%Z.
+Proof.
+  destruct numer; simpl.
+  - reflexivity.
+  - apply Zle_0_pos.
+Qed.
+
+Definition mkMaxN (numer : N) (denom : positive) : Max :=
+  MkMax (Qmake (Z.of_N numer) denom) (ZofNNonNeg numer).
+
+Definition N_to_Max (n : N) : Max := mkMaxN n 1.
+
+Definition mkMaxNat (numer : nat) (denom : positive) : Max :=
+  MkMax (Qmake (Z.of_nat numer) denom) (ZofNatNonNeg numer).
+
+Definition nat_to_Max (n : nat) : Max := mkMaxNat n 1.
+
+Definition MaxEq (m1 m2 : Max) : Prop :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qeq q1 q2
+  end.
+
+Notation "m1 == m2" := (MaxEq m1 m2) (at level 70).
+
+Definition MaxEqb (m1 m2 : Max) : bool :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qeq_bool q1 q2
+  end.
+
+Definition MaxLt (m1 m2 : Max) : Prop :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qlt q1 q2
+  end.
+
+Notation "m1 < m2" := (MaxLt m1 m2) (at level 70).
+
+Definition MaxLtb (m1 m2 : Max) : bool :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qlt_bool q1 q2
+  end.
+
+Notation "m1 <? m2" := (MaxLtb m1 m2) (at level 70).
+
+Definition MaxLe (m1 m2 : Max) : Prop :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qle q1 q2
+  end.
+
+Notation "m1 <= m2" := (MaxLe m1 m2) (at level 70).
+
+Definition MaxLeb (m1 m2 : Max) : bool :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qle_bool q1 q2
+  end.
+
+Notation "m1 <=? m2" := (MaxLeb m1 m2) (at level 70).
+
+Definition MaxGt (m1 m2 : Max) : Prop := MaxLt m2 m1.
+
+Notation "m1 > m2" := (MaxGt m1 m2) (at level 70).
+
+Definition MaxGtb (m1 m2 : Max) : bool := MaxLtb m2 m1.
+
+Notation "m1 >? m2" := (MaxGtb m1 m2) (at level 70).
+
+Definition MaxGeb (m1 m2 : Max) : bool := MaxLeb m2 m1.
+
+Notation "m1 >=? m2" := (MaxGeb m1 m2) (at level 70).
+
+Definition MaxCompare (m1 m2 : Max) : comparison :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ => Qcompare q1 q2
+  end.
+
+Definition max (m1 m2 : Max) : Max :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ =>
+    match Qcompare q1 q2 with
+    | Gt => m1
+    | _  => m2
+    end
+  end.
+
+Definition min (m1 m2 : Max) : Max :=
+  match m1, m2 with
+  | MkMax q1 _, MkMax q2 _ =>
+    match Qcompare q1 q2 with
+    | Lt => m1
+    | _  => m2
+    end
+  end.
+
+Lemma maxMultNonNeg :
+  forall (q1 q2 : Q),
+  (0 <= Qnum q1)%Z -> (0 <= Qnum q2)%Z -> (0 <= Qnum (q1 * q2))%Z.
+Proof.
+  destruct q1, q2. simpl. intros.
+  destruct Qnum; destruct Qnum0; simpl; try contradiction; try omega; try (apply Zle_0_pos).
+Qed.
+
+Lemma maxAddNonNeg :
+  forall (q1 q2 : Q),
+  (0 <= Qnum q1)%Z -> (0 <= Qnum q2)%Z -> (0 <= Qnum (q1 + q2))%Z.
+Proof.
+  destruct q1, q2. simpl. intros.
+  destruct Qnum; destruct Qnum0; simpl; try contradiction; try omega; try (apply Zle_0_pos).
+Qed.
+
+Definition MaxAdd (m1 m2 : Max) : Max :=
+  match m1, m2 with
+  | MkMax q1 q1NonNeg, MkMax q2 q2NonNeg =>
+    MkMax (q1 + q2) (maxAddNonNeg q1 q2 q1NonNeg q2NonNeg)
+  end.
+
+Notation "m1 + m2" := (MaxAdd m1 m2) (at level 50, left associativity).
+
+(* Zeroes if the subtrahend is larger than the minuend. *)
+Definition Qminus_pos (q1 q2 : Q) : Q :=
+  match Qcompare q1 q2 with
+  | Lt => 0
+  | _  => Qminus q1 q2
+  end.
+
+Lemma maxMinusNonNeg :
+  forall (q1 q2 : Q),
+  (0 <= Qnum q1)%Z -> (0 <= Qnum q2)%Z -> (0 <= Qnum (Qminus_pos q1 q2))%Z.
+Proof.
+  destruct q1, q2. simpl. intros.
+  destruct Qnum; destruct Qnum0; simpl; try contradiction; try omega.
+  - apply Zle_0_pos.
+  - unfold Qminus_pos. cdestruct (Z.pos p # Qden ?= Z.pos p0 # Qden0)%Q.
+    * simpl. unfold Qeq in H1. simpl in H1. injection H1 as X. rewrite X.
+      rewrite Z.pos_sub_diag. reflexivity.
+    * reflexivity.
+    * simpl. unfold Qeq in H1. unfold Qlt in H1. simpl in H1.
+      rewrite Z.pos_sub_gt; auto.
+Qed.
+
+(* Zeroes if the subtrahend is larger than the minuend. *)
+Definition MaxMinus (m1 m2 : Max) : Max :=
+  match m1, m2 with
+  | MkMax q1 q1NonNeg, MkMax q2 q2NonNeg =>
+    MkMax (Qminus_pos q1 q2) (maxMinusNonNeg q1 q2 q1NonNeg q2NonNeg)
+  end.
+
+Notation "m1 - m2" := (MaxMinus m1 m2) (at level 50, left associativity).
+
+Definition MaxMult (m1 m2 : Max) : Max :=
+  match m1, m2 with
+  | MkMax q1 q1NonNeg, MkMax q2 q2NonNeg =>
+    MkMax (q1 * q2) (maxMultNonNeg q1 q2 q1NonNeg q2NonNeg)
+  end.
+
+Notation "m1 * m2" := (MaxMult m1 m2) (at level 40, left associativity).
+
+Definition MaxZero : Max := nat_to_Max 0.
 
 Ltac rewrite_Qeqs :=
   repeat match goal with

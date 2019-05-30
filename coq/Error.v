@@ -24,3 +24,7 @@ Proof. exact default. Qed.
 Instance DefaultMax : Default Max := {
   default := MaxZero
 }.
+
+Instance DefaultNat : Default nat := {
+  default := O
+}.

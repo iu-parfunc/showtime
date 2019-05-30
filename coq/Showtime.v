@@ -71,6 +71,9 @@ Defined.
 Definition flip_ltb (x : Max) : Max -> bool :=
   fun (y : Max) => y <? x.
 
+Definition flip_geb (x : Max) : Max -> bool :=
+  fun (y : Max) => y >=? x.
+
 Inductive
   OpenAcc : list Time -> Prop :=
   | OpenAccNil  : OpenAcc nil
@@ -308,3 +311,128 @@ Theorem closed_cons :
                           (dropWhile (flip_ltb expiry) rst)
     else open (t1 :: rst).
 Proof. intros. apply closed'_cons. Qed.
+
+Definition option_bind {a b} (oa : option a) (k : a -> option b) : option b :=
+  match oa with
+  | Some x => k x
+  | None   => None
+  end.
+
+Notation "o >>= k" := (option_bind o k) (at level 10, left associativity).
+
+Fixpoint ourShow (myi : TID) (s0 : State) : list Time -> option Time :=
+  fix go (l : list Time) : option Time :=
+    match l with
+    | nil => None
+    | t :: rst =>
+      readParticipants t s0 >>=
+      fun set =>
+        if Snat.mem myi set
+        then Some t
+        else go rst
+    end.
+
+Definition minimum (l : list Time) : Time :=
+  fold_left Max.min l (hd default l). (* Partiality! *)
+
+Definition pref (tv : TimeMap) (lg : Log) : list (Time * TID) :=
+  unstableLogPrefix (minimum (map snd (M.MapS.bindings tv))) lg.
+
+Definition times (tv : TimeMap) (lg : Log) : list Time :=
+  showtimes (map fst (pref tv lg)).
+
+Definition myt : TID -> State -> Time :=
+  myTime.
+
+Definition result (myi : TID) (s0 : State) : option Time :=
+  match s0 with
+  | MkState tv lg =>
+      ourShow myi s0 (dropWhile (flip_ltb (myt myi s0 - showLen)) (times tv lg))
+  end.
+
+Definition getNextShow : TID -> State -> option Time := result.
+
+Definition openTimeDelta : Time := nat_to_Max 1.
+
+Definition openResource (me : TID) (s0 : State) : option (State * Time) :=
+  match s0 with
+  | MkState tv lg =>
+      let myt0 := myTime me s0 in
+      let lg2  := S.add (myt0, me) lg in
+      let s1   := tickN openTimeDelta me (MkState tv lg2) in
+        getNextShow me s1 >>=
+      fun t1 =>
+        let myJoinTime := t1 + myEpsilon me in
+        if t1 >? myt0
+        then Some (tickN (myJoinTime - myt0) me s1, t1)
+        else Some (s1, t1)
+  end.
+
+Inductive Op : Type :=
+| Compute     : Time -> Op
+| Open        :         Op
+| BlockedOpen : Time -> Op.
+
+Definition Prog := list (list Op).
+
+Inductive OpInst : Type :=
+| MkOpInst : TID -> Time -> Op -> OpInst.
+
+Definition Oplog := list OpInst.
+
+Definition LabeledProg := list (TID * list Op).
+
+Definition Conf := (State * LabeledProg * Oplog)%type.
+
+Definition oths (set : SetTID) (st : State) : list Time :=
+  map (fun i => myTime i st) (Snat.elements set).
+
+Definition amLMIC (myi : TID) (set : SetTID) (st : State) : bool :=
+  forallb (flip_geb (myt myi st)) (oths set st).
+
+Definition defaultFuel : nat := 15.
+
+Definition numThreads : Prog -> nat :=
+  @length (list Op).
+
+Definition null {a} (l : list a) : bool :=
+  match l with
+  | nil    => true
+  | _ :: _ => false
+  end.
+
+Definition isProgDone (_s : State) : LabeledProg -> bool :=
+  forallb (fun x => null (snd x)).
+
+Definition mapMaybe {a b} (f : a -> option b) : list a -> list b :=
+  fix go (l : list a) : list b :=
+    match l with
+    | nil => nil
+    | x :: xs =>
+        let rs := go xs in
+        match f x with
+        | None   => rs
+        | Some r => r :: rs
+        end
+    end.
+
+Definition catMaybes {a} : list (option a) -> list a :=
+  mapMaybe id.
+
+(*
+Definition startState
+
+Definition done
+
+Definition dense
+
+Definition explore
+
+Definition expand
+
+Definition interp2
+
+Definition summarize
+
+Definition threadOrder (p : Prog) : list nat.
+*)
