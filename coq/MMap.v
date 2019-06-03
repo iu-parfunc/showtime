@@ -1,4 +1,4 @@
-From Showtime Require Import Lattice.
+From Showtime Require Import Destruct Lattice.
 Require Import Classes.RelationClasses.
 Require Import MMaps.MMapList MMaps.MMapFacts.
 Require SetoidClass. (* (==) from SetoidClass clashes with stuff from MMaps. Ugh. *)
@@ -11,13 +11,6 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
   (* Useful tactics *)
 
   Hint Resolve X.compare_spec D.compare_spec : cdestruct.
-
-  Ltac cdestruct X :=
-    let H := fresh in let e1 := fresh "e1" in let e2 := fresh "e2" in let e3 := fresh "e3" in
-     evar (e1: Prop); evar (e2: Prop); evar (e3: Prop);
-     assert (H: CompareSpec e1 e2 e3 X); subst e1; subst e2; subst e3;
-      [eauto with cdestruct
-      | destruct H as [H|H|H] ].
 
   (* Some useful auxiliary definitions *)
 
