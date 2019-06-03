@@ -1,4 +1,5 @@
 -Q . Showtime
+./Destruct.v
 ./Error.v
 ./Lattice.v
 ./Max.v

@@ -1,4 +1,4 @@
-From Showtime Require Import Error Max MSet State.
+From Showtime Require Import Destruct Error Max MSet State.
 Require Import Arith.Wf_nat Bool List Omega.
 Require Import Structures.OrdersEx.
 Open Scope string_scope.
@@ -404,7 +404,7 @@ Definition null {a} (l : list a) : bool :=
 Definition isProgDone (_s : State) : LabeledProg -> bool :=
   forallb (fun x => null (snd x)).
 
-Definition mapMaybe {a b} (f : a -> option b) : list a -> list b :=
+Definition mapOption {a b} (f : a -> option b) : list a -> list b :=
   fix go (l : list a) : list b :=
     match l with
     | nil => nil
@@ -416,12 +416,14 @@ Definition mapMaybe {a b} (f : a -> option b) : list a -> list b :=
         end
     end.
 
-Definition catMaybes {a} : list (option a) -> list a :=
-  mapMaybe id.
+Definition catSomes {a} : list (option a) -> list a :=
+  mapOption id.
+
+Definition startState (ops: Prog) : State :=
+  MkState (VM.MProps.of_list (map (fun i => (i, myEpsilon i)) (seq 0 (numThreads ops))))
+          S.empty.
 
 (*
-Definition startState
-
 Definition done
 
 Definition dense
