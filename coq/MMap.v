@@ -4,14 +4,27 @@ Require Import MMaps.MMapList MMaps.MMapFacts.
 Require SetoidClass. (* (==) from SetoidClass clashes with stuff from MMaps. Ugh. *)
 Module SC := SetoidClass.
 
-Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
+Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D)
+    <: OrderedType.
   Module M'     := Make_ord X D.
   Module M      := M'.MapS.
   Module MProps := WProperties_fun X M.
+  Include M'.
 
   (* Useful tactics *)
 
   Hint Resolve X.compare_spec D.compare_spec : cdestruct.
+
+  (* Let's make it a DecidableType *)
+
+  Theorem eq_dec : forall (x y : M.t D.t), { eq x y } + { ~ eq x y }.
+  Proof.
+    intros.
+    destruct (eq_equal x y) as [X Y].
+    destruct (M.equal cmp x y) eqn:H.
+    - left. apply Y. auto.
+    - right. intro. specialize (X H0). discriminate.
+  Qed.
 
   (* Some useful auxiliary definitions *)
 
@@ -36,7 +49,7 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
     HdRel M.Raw.PX.ltk (k1, v) m -> HdRel M.Raw.PX.ltk (k1, v) (raw_adjusti f k2 m).
   Proof.
     intros. induction H; simpl; auto.
-    destruct b. cdestruct (X.compare k2 t); auto.
+    destruct b. cdestruct (X.compare k2 t0); auto.
   Qed.
 
   Lemma HdRel_ltk_value_unimportant :
@@ -49,7 +62,7 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
     Sorted M.Raw.PX.ltk m -> Sorted M.Raw.PX.ltk (raw_adjusti f k m).
   Proof.
     intros. induction H; simpl; auto. destruct a.
-    cdestruct (X.compare k t); constructor; try (apply adjusti_HdRel); auto.
+    cdestruct (X.compare k t0); constructor; try (apply adjusti_HdRel); auto.
     apply (HdRel_ltk_value_unimportant H0).
   Qed.
 
@@ -66,7 +79,7 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
 
   (* Proofs and stuff *)
 
-  Instance eq_list_refl : Reflexive M'.eq_list := {}.
+  Instance eq_list_refl : Reflexive eq_list := {}.
   Proof.
     induction x.
     - reflexivity.
@@ -74,34 +87,34 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
       + reflexivity.
       + auto.
   Qed.
-  Instance eq_list_sym : Symmetric M'.eq_list := {}.
+  Instance eq_list_sym : Symmetric eq_list := {}.
   Proof.
     induction x; induction y; simpl; try contradiction; auto.
     - destruct a. contradiction.
-    - destruct a, a0. cdestruct (X.compare t t1); try contradiction.
+    - destruct a, a0. cdestruct (X.compare t0 t2); try contradiction.
       assert (Hsym := H). symmetry in Hsym.
-      rewrite (iff_sym (M.Raw.MX.compare_eq_iff t1 t)) in Hsym. rewrite Hsym.
+      rewrite (iff_sym (M.Raw.MX.compare_eq_iff t2 t0)) in Hsym. rewrite Hsym.
       intro. destruct H0. split.
       + symmetry. auto.
       + auto.
   Qed.
-  Instance eq_list_trans : Transitive M'.eq_list := {}.
+  Instance eq_list_trans : Transitive eq_list := {}.
   Proof.
     induction x; induction y; induction z; simpl; try contradiction; auto.
     - destruct a0. contradiction.
     - destruct a, a0, a1.
-      cdestruct (X.compare t t1); try contradiction.
-      cdestruct (X.compare t1 t3); try contradiction.
-      assert (tEqT3 : X.eq t t3). { rewrite H. auto. }
-      rewrite (iff_sym (M.Raw.MX.compare_eq_iff t t3)) in tEqT3. rewrite tEqT3.
+      cdestruct (X.compare t0 t2); try contradiction.
+      cdestruct (X.compare t2 t4); try contradiction.
+      assert (tEqT3 : X.eq t0 t4). { rewrite H. auto. }
+      rewrite (iff_sym (M.Raw.MX.compare_eq_iff t0 t4)) in tEqT3. rewrite tEqT3.
       intros. destruct H1, H2. split.
       + rewrite H1. auto.
       + apply IHx with (y := y); auto.
   Qed.
-  Instance eq_list_equiv : Equivalence M'.eq_list := {}.
+  Instance eq_list_equiv : Equivalence eq_list := {}.
 
   Instance Setoid : SC.Setoid (M.t D.t) := {
-    equiv := M'.eq
+    equiv := eq
   }.
 
   Definition union_f (key : X.t) (oe1 oe2 : option D.t) : option D.t :=
@@ -143,7 +156,7 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
 
   Lemma merge_union_nil_r :
     forall (m : M.Raw.t D.t),
-    M'.eq_list (M.Raw.merge union_f m nil) m.
+    eq_list (M.Raw.merge union_f m nil) m.
   Proof.
     destruct m; simpl.
     - constructor.
@@ -163,8 +176,8 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
 
   Lemma merge_union_associative :
     forall (m1 m2 m3 : M.Raw.t D.t),
-    M'.eq_list (M.Raw.merge union_f m1 (M.Raw.merge union_f m2 m3))
-               (M.Raw.merge union_f (M.Raw.merge union_f m1 m2) m3).
+    eq_list (M.Raw.merge union_f m1 (M.Raw.merge union_f m2 m3))
+            (M.Raw.merge union_f (M.Raw.merge union_f m1 m2) m3).
   Proof.
     Ltac crush :=
     repeat match goal with
@@ -197,27 +210,27 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
     induction m1; induction m2; induction m3; simpl; crush.
     simpl in IHm2; simpl in IHm3;
     repeat rewrite merge_l_union_id in IHm2; repeat rewrite merge_l_union_id in IHm3;
-    cdestruct (X.compare t t1); cdestruct (X.compare t1 t3); crush;
+    cdestruct (X.compare t0 t2); cdestruct (X.compare t2 t4); crush;
     simpl in IHm2; simpl in IHm3;
     repeat rewrite merge_l_union_id in IHm2; repeat rewrite merge_l_union_id in IHm3;
     auto.
-    - pose proof (jslAssociativity (a := D.t)) as Assoc. specialize (Assoc t0 t2 t4).
+    - pose proof (jslAssociativity (a := D.t)) as Assoc. specialize (Assoc t1 t3 t5).
       rewrite dequiv_is_deq in Assoc. auto.
-    - specialize (IHm1 ((t1, t2) :: m2) ((t3, t4) :: m3)). simpl in IHm1.
-      rewrite (eq_to_compare t1 t3 H0) in IHm1. auto.
-    - specialize (IHm1 ((t1, t2) :: m2) ((t3, t4) :: m3)). simpl in IHm1.
-      rewrite (lt_to_compare t1 t3 H0) in IHm1. auto.
-    - simpl. cdestruct (X.compare t t3); simpl; crush.
-      + specialize (IHm1 ((t1, t2) :: m2) m3). simpl in IHm1.
+    - specialize (IHm1 ((t2, t3) :: m2) ((t4, t5) :: m3)). simpl in IHm1.
+      rewrite (eq_to_compare t2 t4 H0) in IHm1. auto.
+    - specialize (IHm1 ((t2, t3) :: m2) ((t4, t5) :: m3)). simpl in IHm1.
+      rewrite (lt_to_compare t2 t4 H0) in IHm1. auto.
+    - simpl. cdestruct (X.compare t0 t4); simpl; crush.
+      + specialize (IHm1 ((t2, t3) :: m2) m3). simpl in IHm1.
         repeat rewrite merge_l_union_id in IHm1. auto.
-      + specialize (IHm1 ((t1, t2) :: m2) ((t3, t4) :: m3)). simpl in IHm1.
+      + specialize (IHm1 ((t2, t3) :: m2) ((t4, t5) :: m3)). simpl in IHm1.
         repeat rewrite merge_l_union_id in IHm1.
-        rewrite (gt_to_compare t3 t1 H0) in IHm1. auto.
+        rewrite (gt_to_compare t4 t2 H0) in IHm1. auto.
     Qed.
 
   Lemma merge_union_commutative :
     forall (m1 m2 : M.Raw.t D.t),
-    M'.eq_list (M.Raw.merge union_f m1 m2) (M.Raw.merge union_f m2 m1).
+    eq_list (M.Raw.merge union_f m1 m2) (M.Raw.merge union_f m2 m1).
   Proof.
     induction m1; simpl.
     - intros. rewrite merge_r_union_id. rewrite merge_union_nil_r. reflexivity.
@@ -225,19 +238,19 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
       repeat rewrite merge_l_union_id;
       repeat rewrite merge_r_union_id.
       + rewrite M.Raw.MX.compare_refl. split; reflexivity.
-      + destruct a0. simpl. cdestruct (X.compare t t1).
+      + destruct a0. simpl. cdestruct (X.compare t0 t2).
         * assert (Hsym := H). symmetry in Hsym.
-          rewrite (eq_to_compare t1 t Hsym). simpl.
-          rewrite (eq_to_compare t t1 H). split.
-          -- pose proof (jslCommutativity (a := D.t)) as Comm. specialize (Comm t0 t2).
+          rewrite (eq_to_compare t2 t0 Hsym). simpl.
+          rewrite (eq_to_compare t0 t2 H). split.
+          -- pose proof (jslCommutativity (a := D.t)) as Comm. specialize (Comm t1 t3).
              rewrite dequiv_is_deq in Comm. auto.
           -- auto.
-        * rewrite (gt_to_compare t t1 H). simpl.
+        * rewrite (gt_to_compare t0 t2 H). simpl.
           rewrite M.Raw.MX.compare_refl. split.
           -- reflexivity.
-          -- specialize (IHm1 ((t1, t2) :: m2)). simpl in IHm1.
+          -- specialize (IHm1 ((t2, t3) :: m2)). simpl in IHm1.
              repeat rewrite merge_l_union_id in IHm1. auto.
-        * rewrite (lt_to_compare t1 t H). simpl.
+        * rewrite (lt_to_compare t2 t0 H). simpl.
           rewrite M.Raw.MX.compare_refl. split.
           -- reflexivity.
           -- repeat rewrite merge_l_union_id in IHm2. auto.
@@ -245,13 +258,13 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D).
 
   Lemma merge_union_idempotent :
     forall (m : M.Raw.t D.t),
-    M'.eq_list (M.Raw.merge union_f m m) m.
+    eq_list (M.Raw.merge union_f m m) m.
   Proof.
     induction m; simpl.
     + constructor.
     + destruct a. rewrite M.Raw.MX.compare_refl. simpl.
       rewrite M.Raw.MX.compare_refl. split.
-      * pose proof (jslIdempotency (a := D.t)) as Idem. specialize (Idem t0).
+      * pose proof (jslIdempotency (a := D.t)) as Idem. specialize (Idem t1).
         rewrite dequiv_is_deq in Idem. auto.
       * auto.
   Qed.
