@@ -3,14 +3,14 @@ Require Import Arith.Wf_nat Bool List Omega.
 Require Import Structures.OrdersEx.
 Open Scope string_scope.
 
-Module Snat  := MSets.MSetAVL.Make Nat_as_OT.
-Module VSnat := VMSet Nat_as_OT Snat.
+Module SetNat  := MSets.MSetAVL.Make Nat_as_OT.
+Module VSetNat := VMSet Nat_as_OT SetNat.
 
-Definition SetTID := Snat.t.
+Definition SetTID := SetNat.t.
 
 Definition tickN (delta : Time) (myi : TID) (s : State) : State :=
   match s with
-  | MkState tl l1 => MkState (VM.adjust (fun x => x + delta) myi tl) l1
+  | MkState tl l1 => MkState (VMapNat2Max.adjust (fun x => x + delta) myi tl) l1
   end.
 
 Definition tick : TID -> State -> State :=
@@ -23,20 +23,20 @@ Definition myEpsilon (n : TID) : Time :=
   nat_to_Max (n + 1) * epsilon.
 
 Definition unstableLogPrefix (t : Time) (lg : Log) : list (Time * TID) :=
-  VS.SProps.to_list (S.filter (fun x => fst x <=? t) lg).
+  VSetPairMaxNat.SProps.to_list (SetPairMaxNat.filter (fun x => fst x <=? t) lg).
 
 Definition readParticipants (t : Time) (s : State) : option SetTID :=
   match s with
   | MkState tv lg =>
-      if VM.MProps.exists_range (fun x => x <? t) tv
+      if VMapNat2Max.MProps.exists_range (fun x => x <? t) tv
          then None
-         else Some (VSnat.SProps.of_list (map snd (unstableLogPrefix t lg)))
+         else Some (VSetNat.SProps.of_list (map snd (unstableLogPrefix t lg)))
   end.
 
 Definition myTime (myi : TID) (s : State) : Time :=
   match s with
   | MkState tv _ =>
-    match M.MapS.find myi tv with
+    match MapNat2Max.find myi tv with
     | Some t => t
     | None => patternFailure (* Partiality! *)
     end
@@ -327,7 +327,7 @@ Fixpoint ourShow (myi : TID) (s0 : State) : list Time -> option Time :=
     | t :: rst =>
       readParticipants t s0 >>=
       fun set =>
-        if Snat.mem myi set
+        if SetNat.mem myi set
         then Some t
         else go rst
     end.
@@ -336,7 +336,7 @@ Definition minimum (l : list Time) : Time :=
   fold_left Max.min l (hd default l). (* Partiality! *)
 
 Definition pref (tv : TimeMap) (lg : Log) : list (Time * TID) :=
-  unstableLogPrefix (minimum (map snd (M.MapS.bindings tv))) lg.
+  unstableLogPrefix (minimum (map snd (MapNat2Max.bindings tv))) lg.
 
 Definition times (tv : TimeMap) (lg : Log) : list Time :=
   showtimes (map fst (pref tv lg)).
@@ -358,7 +358,7 @@ Definition openResource (me : TID) (s0 : State) : option (State * Time) :=
   match s0 with
   | MkState tv lg =>
       let myt0 := myTime me s0 in
-      let lg2  := S.add (myt0, me) lg in
+      let lg2  := SetPairMaxNat.add (myt0, me) lg in
       let s1   := tickN openTimeDelta me (MkState tv lg2) in
         getNextShow me s1 >>=
       fun t1 =>
@@ -385,7 +385,7 @@ Definition LabeledProg := list (TID * list Op).
 Definition Conf := (State * LabeledProg * Oplog)%type.
 
 Definition oths (set : SetTID) (st : State) : list Time :=
-  map (fun i => myTime i st) (Snat.elements set).
+  map (fun i => myTime i st) (SetNat.elements set).
 
 Definition amLMIC (myi : TID) (set : SetTID) (st : State) : bool :=
   forallb (flip_geb (myt myi st)) (oths set st).
@@ -420,8 +420,9 @@ Definition catSomes {a} : list (option a) -> list a :=
   mapOption id.
 
 Definition startState (ops: Prog) : State :=
-  MkState (VM.MProps.of_list (map (fun i => (i, myEpsilon i)) (seq 0 (numThreads ops))))
-          S.empty.
+  MkState (VMapNat2Max.MProps.of_list (map (fun i => (i, myEpsilon i))
+                                      (seq 0 (numThreads ops))))
+          SetPairMaxNat.empty.
 
 (*
 Definition done
