@@ -2,9 +2,11 @@
 ./Destruct.v
 ./Error.v
 ./Lattice.v
+./ListAsOT.v
 ./Max.v
 ./MMap.v
 ./MSet.v
+./Op.v
 ./Showtime.v
 ./State.v
 ./Stream.v

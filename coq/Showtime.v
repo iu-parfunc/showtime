@@ -1,4 +1,4 @@
-From Showtime Require Import Destruct Error Max MSet State.
+From Showtime Require Import Destruct Error ListAsOT Max MSet Op State.
 Require Import Arith.Wf_nat Bool List Omega.
 Require Import Structures.OrdersEx.
 Open Scope string_scope.
@@ -368,11 +368,6 @@ Definition openResource (me : TID) (s0 : State) : option (State * Time) :=
         else Some (s1, t1)
   end.
 
-Inductive Op : Type :=
-| Compute     : Time -> Op
-| Open        :         Op
-| BlockedOpen : Time -> Op.
-
 Definition Prog := list (list Op).
 
 Inductive OpInst : Type :=
@@ -425,11 +420,20 @@ Definition startState (ops: Prog) : State :=
           SetPairMaxNat.empty.
 
 (*
+Module Conf_as_OT :=
+  PairOrderedType (PairOrderedType _ _)
+                  _.
+Module SetConf := MSets.MSetAVL.Make Nat_as_OT.
+*)
+
+(*
+Definition explore
+
+Definition final/unreached
+
 Definition done
 
 Definition dense
-
-Definition explore
 
 Definition expand
 
