@@ -18,24 +18,24 @@ Module Op_as_OT <: OrderedType.
 
   Definition eq := eq_.
 
-  Theorem eq_refl : Reflexive eq.
+  Instance eq_refl : Reflexive eq.
   Proof.
     unfold Reflexive. induction x; constructor; reflexivity.
   Qed.
 
-  Theorem eq_sym : Symmetric eq.
+  Instance eq_sym : Symmetric eq.
   Proof.
     unfold Symmetric. induction x; induction y; intros; inversion H; subst;
     constructor; symmetry; auto.
   Qed.
 
-  Theorem eq_trans : Transitive eq.
+  Instance eq_trans : Transitive eq.
   Proof.
     unfold Transitive. induction x; induction y; induction z; intros;
     inversion H; inversion H0; subst; constructor; rewrite H3; auto.
   Qed.
 
-  Theorem eq_equiv : Equivalence eq.
+  Instance eq_equiv : Equivalence eq.
   Proof. split.
   - apply eq_refl.
   - apply eq_sym.
@@ -75,7 +75,7 @@ Module Op_as_OT <: OrderedType.
 
   Definition lt := lt_.
 
-  Theorem lt_irrefl : Irreflexive lt.
+  Instance lt_irrefl : Irreflexive lt.
   Proof.
     unfold Irreflexive, Reflexive, complement.
     intros. induction x; inversion H;
@@ -83,7 +83,7 @@ Module Op_as_OT <: OrderedType.
     apply StrictOrder_Irreflexive in H2; auto.
   Qed.
 
-  Theorem lt_trans : Transitive lt.
+  Instance lt_trans : Transitive lt.
   Proof.
     unfold Transitive. induction x; induction y; induction z; intros;
     inversion H; inversion H0; constructor;
@@ -91,13 +91,13 @@ Module Op_as_OT <: OrderedType.
     apply (StrictOrder_Transitive t0 t1 t2 H3 H6).
   Qed.
 
-  Theorem lt_strorder : StrictOrder lt.
+  Instance lt_strorder : StrictOrder lt.
   Proof. split.
   - apply lt_irrefl.
   - apply lt_trans.
   Qed.
 
-  Theorem lt_compat : Proper (eq ==> eq ==> iff) lt.
+  Instance lt_compat : Proper (eq ==> eq ==> iff) lt.
   Proof.
     unfold Proper, respectful.
     intros a b AB. induction AB; intros c d CD; induction CD;

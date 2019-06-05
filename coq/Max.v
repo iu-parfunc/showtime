@@ -315,17 +315,13 @@ Module Max_as_DT <: DecidableType.
 
   Definition eq := MaxEq.
 
-  Lemma eq_refl : forall x : t, eq x x.
-  Proof. destruct x. apply Q_as_DT.eq_refl. Qed.
+  Instance eq_refl : Reflexive eq := maxEqReflexive.
 
-  Lemma eq_sym : forall x y : t, eq x y -> eq y x.
-  Proof. destruct x, y. apply Q_as_DT.eq_sym. Qed.
+  Instance eq_sym : Symmetric eq := maxEqSymmetric.
 
-  Lemma eq_trans : forall x y z : t, eq x y -> eq y z -> eq x z.
-  Proof. destruct x, y, z. apply Q_as_DT.eq_trans. Qed.
+  Instance eq_trans : Transitive eq := maxEqTransitive.
 
-  Lemma eq_equiv : Equivalence eq.
-  Proof. apply maxEqEquivalence. Qed.
+  Instance eq_equiv : Equivalence eq := maxEqEquivalence.
 
   Definition eq_dec : forall x y : t, {eq x y} + {~ eq x y}.
   Proof. destruct x, y. apply Q_as_DT.eq_dec. Qed.
@@ -336,10 +332,9 @@ Module Max_as_OT <: OrderedType.
 
   Definition lt := MaxLt.
 
-  Lemma lt_strorder : StrictOrder lt.
-  Proof. apply maxLtStrictOrder. Qed.
+  Instance lt_strorder : StrictOrder lt := maxLtStrictOrder.
 
-  Lemma lt_compat : Proper (eq ==> eq ==> iff) lt.
+  Instance lt_compat : Proper (eq ==> eq ==> iff) lt.
   Proof.
     unfold Proper, respectful. destruct x, y. simpl.
     destruct x, y. simpl. intros. split; crush_Q.
@@ -352,7 +347,7 @@ Module Max_as_OT <: OrderedType.
 End Max_as_OT.
 
 Module Max_as_OL <: OrderedLattice Max_as_OT.
-  Instance Setoid_D : Setoid Max := {}.
+  Instance Setoid_D : Setoid Max := maxEqSetoid.
   Instance JSL_D : JoinSemiLattice Max := jslMax.
   Instance BJSL_D : BoundedJoinSemiLattice Max := bjslMax.
   Instance VJSL_D : VJoinSemiLattice Max := vjslMax.

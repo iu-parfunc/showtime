@@ -1,4 +1,4 @@
-From Showtime Require Import Destruct Error ListAsOT Max MSet Op State.
+From Showtime Require Import Destruct Error ListAsOT Max MSet Op OpInst State.
 Require Import Arith.Wf_nat Bool List Omega.
 Require Import Structures.OrdersEx.
 Open Scope string_scope.
@@ -369,9 +369,6 @@ Definition openResource (me : TID) (s0 : State) : option (State * Time) :=
   end.
 
 Definition Prog := list (list Op).
-
-Inductive OpInst : Type :=
-| MkOpInst : TID -> Time -> Op -> OpInst.
 
 Definition Oplog := list OpInst.
 

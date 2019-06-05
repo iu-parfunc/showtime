@@ -28,24 +28,24 @@ Module list_as_OT (O : OrderedType) <: OrderedType.
     right. abstract (intro; elim n; inversion H; auto).
   Defined.
 
-  Lemma eq_refl : forall x, eq x x.
+  Instance eq_refl : Reflexive eq.
   Proof.
-    unfold eq; induction x; intros. auto.
+    unfold Reflexive, eq; induction x; intros. auto.
     constructor; auto. reflexivity.
   Qed.
 
-  Lemma eq_sym : forall x y, eq x y -> eq y x.
+  Instance eq_sym : Symmetric eq.
   Proof.
-    unfold eq; induction x; intros.
+    unfold Symmetric, eq; induction x; intros.
     inversion H; auto.
     destruct y. inversion H.
     inversion H. subst.
     constructor; auto. symmetry. auto.
   Qed.
 
-  Lemma eq_trans : forall x y z, eq x y -> eq y z -> eq x z.
+  Instance eq_trans : Transitive eq.
   Proof.
-    induction x; unfold eq; intros.
+    unfold Transitive. induction x; unfold eq; intros.
     inversion H. subst. inversion H0. subst. auto.
     destruct y. inversion H.
     destruct z. inversion H0.
@@ -54,24 +54,24 @@ Module list_as_OT (O : OrderedType) <: OrderedType.
     - rewrite H6. auto.
   Qed.
 
-  Theorem eq_equiv : Equivalence eq.
+  Instance eq_equiv : Equivalence eq.
   Proof. split.
-  - unfold Reflexive.  apply eq_refl.
-  - unfold Symmetric.  apply eq_sym.
-  - unfold Transitive. apply eq_trans.
+  - apply eq_refl.
+  - apply eq_sym.
+  - apply eq_trans.
   Qed.
 
-  Theorem lt_irrefl : forall x, ~ lt x x.
-  Proof. unfold lt. induction x; intro.
+  Instance lt_irrefl : Irreflexive lt.
+  Proof. unfold Irreflexive, lt, Reflexive. induction x; intro.
   - inversion H.
   - inversion H; subst.
     + destruct O.lt_strorder. apply StrictOrder_Irreflexive in H1. auto.
     + contradiction.
   Qed.
 
-  Lemma lt_trans : forall x y z, lt x y -> lt y z -> lt x z.
+  Instance lt_trans : Transitive lt.
   Proof.
-    induction x; unfold lt; intros.
+    unfold Transitive. induction x; unfold lt; intros.
     inversion H; subst.
     inversion H0; subst.
     constructor.
@@ -91,13 +91,13 @@ Module list_as_OT (O : OrderedType) <: OrderedType.
     apply lt_tail. rewrite H3. auto. eapply IHx; eauto.
   Qed.
 
-  Theorem lt_strorder : StrictOrder lt.
+  Instance lt_strorder : StrictOrder lt.
   Proof. split.
-  - unfold Irreflexive, Reflexive. apply lt_irrefl.
-  - unfold Transitive. apply lt_trans.
+  - apply lt_irrefl.
+  - apply lt_trans.
   Qed.
 
-  Theorem lt_compat : Proper (eq ==> eq ==> iff) lt.
+  Instance lt_compat : Proper (eq ==> eq ==> iff) lt.
   Proof.
     unfold Proper, respectful. intros a b AB. induction AB;
     intros c d CD; induction CD.
