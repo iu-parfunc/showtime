@@ -28,3 +28,7 @@ Instance DefaultMax : Default Max := {
 Instance DefaultNat : Default nat := {
   default := O
 }.
+
+Instance DefaultOption : forall {a}, Default (option a) := {
+  default := None
+}.

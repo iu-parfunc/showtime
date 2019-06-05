@@ -1,6 +1,6 @@
 From Showtime Require Import Destruct Error ListAsOT Max MSet Op OpInst State.
 Require Import Arith.Wf_nat Bool List Omega.
-Require Import Structures.OrdersEx.
+Require Import Structures.Orders Structures.OrdersEx.
 Open Scope string_scope.
 
 Module SetNat  := MSets.MSetAVL.Make Nat_as_OT.
@@ -416,15 +416,79 @@ Definition startState (ops: Prog) : State :=
                                       (seq 0 (numThreads ops))))
           SetPairMaxNat.empty.
 
-(*
+Module ListOp_as_OT :=
+  list_as_OT Op_as_OT.
+Module Prog_as_OT :=
+  list_as_OT ListOp_as_OT.
+Module LabeledProgElem_as_OT :=
+  PairOrderedType Nat_as_OT ListOp_as_OT.
+Module LabeledProg_as_OT :=
+  list_as_OT LabeledProgElem_as_OT.
+Module Oplog_as_OT :=
+  list_as_OT OpInst_as_OT.
+
+Module TripleOrderedType (A : OrderedType)
+                          (B : OrderedType)
+                          (C : OrderedType) <: OrderedType.
+  Module AB := PairOrderedType A B.
+  Module ABC := PairOrderedType AB C.
+  Include ABC.
+End TripleOrderedType.
+
 Module Conf_as_OT :=
-  PairOrderedType (PairOrderedType _ _)
-                  _.
-Module SetConf := MSets.MSetAVL.Make Nat_as_OT.
-*)
+  TripleOrderedType State_as_OT LabeledProg_as_OT Oplog_as_OT.
+Module SetConf  := MSets.MSetAVL.Make Conf_as_OT.
+Module VSetConf := VMSet Conf_as_OT SetConf.
+
+Definition splitAt {a} (n : nat) (xs : list a) : (list a * list a) :=
+  (firstn n xs, skipn n xs).
+
+(* TODO: This is actually 100000 in the prototype, but using that causes
+   Coq to overflow its stack *)
+Definition inf : Time := nat_to_Max 1000.
+
+Definition expandHelper (s0 : State) (ps0 : LabeledProg) (ol : Oplog) (thrd : nat) : option Conf :=
+  match splitAt thrd ps0 with
+  | (frnt, (myid, nil) :: bk) =>
+      Some (tickN inf myid s0, frnt ++ bk, ol)
+  | (frnt, (myid, op :: rst) :: bk) =>
+      let remaining := (frnt ++ (myid, rst) :: bk) in
+      match op with
+      | Open =>
+          match openResource myid s0 with
+          | None => None
+          | Some (s1, showStrt) =>
+              Some (s1, frnt ++ (myid, BlockedOpen showStrt :: rst) :: bk, ol)
+          end
+      | BlockedOpen showStrt =>
+          match readParticipants showStrt s0 with
+          | None => None
+          | Some locals =>
+              if amLMIC myid locals s0
+              then Some (s0, remaining, ol ++ (MkOpInst myid (myTime myid s0) Open :: nil))
+              else None
+          end
+      | Compute dt => Some (tickN dt myid s0, remaining, ol)
+      end
+  | (_frnt, nil) => patternFailure (* Partiality! *)
+  end.
+
+Definition expand (c : Conf) : SetConf.t :=
+  match c with
+  | (s0, ps0, ol) =>
+      VSetConf.SProps.of_list (catSomes (map (expandHelper s0 ps0 ol)
+                                             (seq 0 (length ps0))))
+  end.
 
 (*
-Definition explore
+Fixpoint explore (fuel : nat) (visited next : SetConf.t) : (SetConf.t * SetConf.t) :=
+  match fuel with
+  | O => (visited, next)
+  | S fuel' =>
+    if SetConf.is_empty next
+    then (visited, next)
+    else let next' := fold_left SetConf.union (
+  end.
 
 Definition final/unreached
 
