@@ -363,61 +363,61 @@ interp2 ops =
     (final, unreached) = explore defaultFuel S.empty
                            (S.singleton (startState, zip [TID 0..] ops, Seq.empty))
 
-    -- Search K levels out in the graph:
-    explore :: Int -> Set Conf -> Set Conf -> (Set Conf, Set Conf)
-    explore fuel visited next
-        | fuel == 0 || S.null next = (visited, next)
-        | otherwise =
-          trace ("\n     **** EXPLORE ****   visited "
-                 ++ show (S.size visited) ++ " next up: " ++ show (S.size next)) $
-                let next'    = S.unions $ L.map expand (S.toList next)
-                    visited' = S.union visited next
-                    whatsnew = S.difference next' visited'
-                in explore (fuel - 1) visited' whatsnew
+-- | Enumerate reachable states by one reduction.
+expand :: Conf -> Set Conf
+expand (s0, ps0, ol) =
+  trace ("\n EXPAND STATE! Live threads " ++ show ps0 ++ " state " ++ show s0) $
+  S.fromList $ catMaybes $
+  [ -- TODO: This case is partial!
+    case L.splitAt thrd ps0 of
+     -- The thread is tapped out of ops. Bump its clock to show it won't be
+     -- doing anything else:
+     (frnt, (myid, []) : bk) ->
+       Just (tickN inf myid s0, frnt ++ bk, ol)
+     (frnt, (myid, op:rst) : bk) ->
+       let _myt      = myTime myid s0
+           remaining = (frnt ++ (myid, rst) : bk) -- Ops left IF we reduce.
+       in case op of
+          Open -> -- May not reduce yet; must be able to ascertain next showtime.
+            case openResource myid s0 of
+              Nothing -> trace (" X Can't openResource now " ++ show (myid, s0))
+                         Nothing
+              Just (s1, showStrt) ->
+                -- We go to the BlockedOpen state even IF it could reduce immediately:
+                Just (s1, frnt ++ (myid, BlockedOpen showStrt : rst) : bk, ol)
 
-    -- | Enumerate reachable states by one reduction.
-    expand :: Conf -> Set Conf
-    expand (s0, ps0, ol) =
-      trace ("\n EXPAND STATE! Live threads " ++ show ps0 ++ " state " ++ show s0) $
-      S.fromList $ catMaybes $
-      [ -- TODO: This case is partial!
-        case L.splitAt thrd ps0 of
-         -- The thread is tapped out of ops. Bump its clock to show it won't be
-         -- doing anything else:
-         (frnt, (myid, []) : bk) ->
-           Just (tickN inf myid s0, frnt ++ bk, ol)
-         (frnt, (myid, op:rst) : bk) ->
-           let _myt      = myTime myid s0
-               remaining = (frnt ++ (myid, rst) : bk) -- Ops left IF we reduce.
-           in case op of
-              Open -> -- May not reduce yet; must be able to ascertain next showtime.
-                case openResource myid s0 of
-                  Nothing -> trace (" X Can't openResource now " ++ show (myid, s0))
-                             Nothing
-                  Just (s1, showStrt) ->
-                    -- We go to the BlockedOpen state even IF it could reduce immediately:
-                    Just (s1, frnt ++ (myid, BlockedOpen showStrt : rst) : bk, ol)
+          BlockedOpen showStrt ->
+            -- We must make sure that all threads have reached the start of the show
+            -- to ensure there will be no more joiners.
+            case readParticipants showStrt s0 of
+              Nothing -> trace (show myid ++ ": expand: other clocks not up to showtime "
+                                          ++ show showStrt ++ " in state:\n  " ++ show s0
+                                          ++ " oplog " ++ show ol)
+                               Nothing
+              Just locals ->
+                -- Here's the MAGIC, we don't need to wait for
+                -- GMIC in order to reduce this operation, LMIC suffices:
+                if amLMIC myid locals s0
+                then -- REDUCE!
+                     Just (s0, remaining, ol |> (OpInst myid (myTime myid s0) Open))
+                else Nothing
 
-              BlockedOpen showStrt ->
-                -- We must make sure that all threads have reached the start of the show
-                -- to ensure there will be no more joiners.
-                case readParticipants showStrt s0 of
-                  Nothing -> trace (show myid ++ ": expand: other clocks not up to showtime "
-                                              ++ show showStrt ++ " in state:\n  " ++ show s0
-                                              ++ " oplog " ++ show ol)
-                                   Nothing
-                  Just locals ->
-                    -- Here's the MAGIC, we don't need to wait for
-                    -- GMIC in order to reduce this operation, LMIC suffices:
-                    if amLMIC myid locals s0
-                    then -- REDUCE!
-                         Just (s0, remaining, ol |> (OpInst myid (myTime myid s0) Open))
-                    else Nothing
+          -- Compute ops are non-blocking, they can always step:
+          Compute dt -> Just (tickN dt myid s0, remaining, ol)
+  | thrd <- [0..L.length ps0 - 1] -- Try to take a step on each thread.
+  ]
 
-              -- Compute ops are non-blocking, they can always step:
-              Compute dt -> Just (tickN dt myid s0, remaining, ol)
-      | thrd <- [0..L.length ps0 - 1] -- Try to take a step on each thread.
-      ]
+-- Search K levels out in the graph:
+explore :: Int -> Set Conf -> Set Conf -> (Set Conf, Set Conf)
+explore fuel visited next
+    | fuel == 0 || S.null next = (visited, next)
+    | otherwise =
+      trace ("\n     **** EXPLORE ****   visited "
+             ++ show (S.size visited) ++ " next up: " ++ show (S.size next)) $
+            let next'    = S.unions $ L.map expand (S.toList next)
+                visited' = S.union visited next
+                whatsnew = S.difference next' visited'
+            in explore (fuel - 1) visited' whatsnew
 
 -- | TODO: switch to counting individual expand calls, not levels in BFS
 defaultFuel :: Int
