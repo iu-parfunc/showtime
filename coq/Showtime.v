@@ -426,6 +426,10 @@ Module LabeledProg_as_OT :=
   list_as_OT LabeledProgElem_as_OT.
 Module Oplog_as_OT :=
   list_as_OT OpInst_as_OT.
+Module SetOplog :=
+  MSets.MSetAVL.Make Oplog_as_OT.
+Module VSetOplog :=
+  VMSet Oplog_as_OT SetOplog.
 
 Module TripleOrderedType (A : OrderedType)
                           (B : OrderedType)
@@ -480,27 +484,75 @@ Definition expand (c : Conf) : SetConf.t :=
                                              (seq 0 (length ps0))))
   end.
 
-(*
 Fixpoint explore (fuel : nat) (visited next : SetConf.t) : (SetConf.t * SetConf.t) :=
   match fuel with
   | O => (visited, next)
   | S fuel' =>
     if SetConf.is_empty next
     then (visited, next)
-    else let next' := fold_left SetConf.union (
+    else let next'    := fold_left SetConf.union
+                                   (map expand (SetConf.elements next))
+                                   SetConf.empty in
+         let visited' := SetConf.union visited next in
+         let whatsnew := SetConf.diff next' visited' in
+         explore fuel' visited' whatsnew
   end.
 
-Definition final/unreached
+Definition done : SetConf.t -> SetConf.t :=
+  SetConf.filter (fun c => match c with | (s, p, _) => isProgDone s p end).
 
-Definition done
+Module StateOplog_as_OT :=
+  PairOrderedType State_as_OT Oplog_as_OT.
+Module StateProgOplog_as_OT :=
+  TripleOrderedType State_as_OT Prog_as_OT Oplog_as_OT.
+Module SetStateOplog :=
+  MSets.MSetAVL.Make StateOplog_as_OT.
+Module VSetStateOplog :=
+  VMSet StateOplog_as_OT SetStateOplog.
+Module SetStateProgOplog :=
+  MSets.MSetAVL.Make StateProgOplog_as_OT.
+Module VSetStateProgOplog :=
+  VMSet StateProgOplog_as_OT SetStateProgOplog.
 
-Definition dense
+Module MapNat2ListOp' := MMaps.MMapList.Make_ord Nat_as_OT ListOp_as_OT.
+Module MapNat2ListOp  := MapNat2ListOp'.MapS.
+Module VMapNat2ListOp := MMaps.MMapFacts.WProperties_fun Nat_as_OT MapNat2ListOp.
 
-Definition expand
+Definition fromOption {a} (def : a) (oa : option a) : a :=
+  match oa with
+  | None   => def
+  | Some a => a
+  end.
 
-Definition interp2
+Definition dense (n : nat) (prs : LabeledProg) : Prog :=
+  let mp := VMapNat2ListOp.of_list prs in
+  map (fun i => fromOption nil (MapNat2ListOp.find i mp)) (seq 0 n).
 
-Definition summarize
+Definition interp2 (ops : Prog) : (SetStateOplog.t * SetStateProgOplog.t) :=
+  let zipped_ops := combine (seq 0 (length ops)) ops in
+  let (final, unreached) :=
+        explore defaultFuel SetConf.empty
+                (SetConf.singleton (startState ops, zipped_ops, nil)) in
+  let s1 := VSetStateOplog.SProps.of_list
+            (map (fun c => match c with | (a, _, b) => (a, b) end)
+                 (SetConf.elements (done final))) in
+  let s2 := VSetStateProgOplog.SProps.of_list
+            (map (fun c => match c with | (s, p, ol) => (s, dense (numThreads ops) p, ol) end)
+                 (SetConf.elements unreached)) in
+  (s1, s2).
 
-Definition threadOrder (p : Prog) : list nat.
-*)
+Definition summarize (ss : (SetStateOplog.t * SetStateProgOplog.t)) : (option Oplog * nat) :=
+  let (s1, s2) := ss in
+  let logs := VSetOplog.SProps.of_list (map snd (SetStateOplog.elements s1)) in
+  (* TODO: This call to elements seems redundant. *)
+  match SetOplog.elements logs with
+  | ans :: nil => (Some ans, SetStateProgOplog.cardinal s2)
+  | nil        => (None,     SetStateProgOplog.cardinal s2)
+  | ls         => error ("Impossible! Nondeterministic outcome!") (* Partiality *)
+  end.
+
+Definition threadOrder (p : Prog) : list nat :=
+  match summarize (interp2 p) with
+  | (None,    n) => error "Not enough fuel to reduce, leftover states" (* Partiality! *)
+  | (Some ol, _) => map (fun oi => match oi with | MkOpInst i _ _ => i end) ol
+  end.

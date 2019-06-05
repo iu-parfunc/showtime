@@ -9,6 +9,7 @@
 ./Op.v
 ./OpInst.v
 ./Showtime.v
+./ShowtimeTests.v
 ./State.v
 ./Stream.v
 ./Vec.v

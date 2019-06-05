@@ -32,3 +32,12 @@ Instance DefaultNat : Default nat := {
 Instance DefaultOption : forall {a}, Default (option a) := {
   default := None
 }.
+
+Instance DefaultPair : forall {a b} `{Default a} `{Default b},
+                        Default (a * b) := {
+  default := (default, default)
+}.
+
+Instance DefaultList : forall {a}, Default (list a) := {
+  default := nil
+}.

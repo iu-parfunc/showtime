@@ -89,7 +89,7 @@ Definition MaxEq (m1 m2 : Max) : Prop :=
   | MkMax q1 _, MkMax q2 _ => Qeq q1 q2
   end.
 
-Notation "m1 == m2" := (MaxEq m1 m2) (at level 70).
+Notation "m1 === m2" := (MaxEq m1 m2) (at level 70).
 
 Definition MaxEqb (m1 m2 : Max) : bool :=
   match m1, m2 with
@@ -364,13 +364,13 @@ Definition MaxLeqSpec :
 Proof. destruct x, y. apply Qleb_spec. Qed.
 
 Definition MaxEqSpec :
-  forall (x y : Max), reflect (x == y) (MaxEqb x y).
+  forall (x y : Max), reflect (x === y) (MaxEqb x y).
 Proof. destruct x, y. apply Qeqb_spec. Qed.
 
 Hint Resolve MaxLtbSpec MaxLeqSpec MaxEqSpec : bdestruct.
 
 Definition MaxCompareSpec :
-  forall (x y : Max), CompareSpec (x == y) (x < y) (y < x) (MaxCompare x y).
+  forall (x y : Max), CompareSpec (x === y) (x < y) (y < x) (MaxCompare x y).
 Proof. apply Max_as_OT.compare_spec. Qed.
 
 Hint Resolve MaxCompareSpec : cdestruct.
