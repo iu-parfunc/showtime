@@ -1,44 +1,12 @@
 From Showtime Require Import Lattice.
 Require Import Classes.RelationClasses Setoid SetoidClass.
 Require Vectors.Vector.
-Require Import Program.Equality.
+Import Vectors.Vector.VectorNotations.
 
 Instance JSL_Vec : forall {a n} `{JoinSemiLattice a},
                    JoinSemiLattice (Vector.t a n) := {
   join l1 l2 := Vector.map2 join l1 l2
 }.
-
-Lemma tO_is_nil_het :
-  forall {a n} (v : Vector.t a n),
-  n = O -> v ~= Vector.nil a.
-Proof.
-intros. induction v.
-- auto.
-- discriminate.
-Qed.
-
-Lemma tO_is_nil :
-  forall {a} (v : Vector.t a O),
-  v = Vector.nil a.
-Proof.
-intros. rewrite (tO_is_nil_het v) by auto. auto.
-Qed.
-
-Lemma tS_is_cons_het :
-  forall {a n} n' (v : Vector.t a n),
-  n = S n' -> exists x xs, v ~= Vector.cons a x n' xs.
-Proof.
-intros. induction v.
-- discriminate.
-- injection H as H. subst. eauto.
-Qed.
-
-Lemma tS_is_cons :
-  forall {a n} (v : Vector.t a (S n)),
-  exists x xs, v = Vector.cons a x n xs.
-Proof.
-intros. pose proof (tS_is_cons_het n v eq_refl). do 2 destruct H. rewrite H. eauto.
-Qed.
 
 Definition VecEq {a n} (rel : relation a) : Vector.t a n -> Vector.t a n -> Prop :=
   Vector.rect2 (fun _ _ _ => Prop) True (fun _ v1' v2' r x y => rel x y /\ r).
@@ -58,25 +26,69 @@ Instance VecEqSymmetric :
   forall {a n} {rel : relation a} `{Symmetric a rel},
   Symmetric (@VecEq a n rel) := {}.
 Proof.
-  intros. induction x.
-  + rewrite (tO_is_nil y). constructor.
-  + pose proof (tS_is_cons y). do 2 destruct H1. subst.
-    simpl. destruct H0. split.
-    * symmetry. auto.
-    * auto.
-Qed.
+  apply (Vector.rect2 (fun _ x y => VecEq rel x y -> VecEq rel y x)); simpl.
+  - auto.
+  - intros. destruct H1. split.
+    + symmetry. auto.
+    + auto.
+  Qed.
+
+Definition zip {A B} {n : nat} : Vector.t A n -> Vector.t B n -> Vector.t (A * B) n :=
+  Vector.rect2 (fun n _ _ => Vector.t (A * B) n) [] (fun _ _ _ H a b => (a, b) :: H).
+
+Definition unzip {A B} : forall {n : nat}, Vector.t (A * B) n -> (Vector.t A n * Vector.t B n) :=
+  fix unzip_fix {n : nat} (v : Vector.t (A * B) n) : (Vector.t A n * Vector.t B n) :=
+    match v with
+    | []          => ([], [])
+    | (a,b) :: v' => let (av, bv) := unzip_fix v'
+                     in (a::av, b::bv)
+    end.
+
+Lemma unzip_zip :
+  forall {A B n} (v1 : Vector.t A n) (v2 : Vector.t B n),
+  unzip (zip v1 v2) = (v1, v2).
+Proof.
+  intros A B. apply Vector.rect2; simpl.
+  - auto.
+  - intros. rewrite H. auto.
+Defined.
+
+Definition rect3_P {A B C}
+  (P : forall (n : nat), Vector.t A n -> Vector.t B n -> Vector.t C n -> Type) :
+  forall (n : nat), Vector.t A n -> Vector.t (B * C) n -> Type :=
+    fun n v1 v2bc =>
+      let (v2b, v2c) := unzip v2bc
+      in P n v1 v2b v2c.
+
+Lemma rect3_P_zip :
+  forall {A B C}
+         (P : forall (n : nat), Vector.t A n -> Vector.t B n -> Vector.t C n -> Type)
+         (n : nat) (v1 : Vector.t A n) (v2 : Vector.t B n) (v3 : Vector.t C n),
+  P n v1 v2 v3 = rect3_P P n v1 (zip v2 v3).
+Proof. intros. unfold rect3_P. rewrite unzip_zip. auto. Defined.
+
+Lemma rect3 {A B C}
+  (P : forall (n : nat), Vector.t A n -> Vector.t B n -> Vector.t C n -> Type)
+  (bas : P 0 [] [] [])
+  (rect : forall n v1 v2 v3, P n v1 v2 v3 ->
+    forall a b c, P (S n) (a :: v1) (b :: v2) (c :: v3)) :
+      forall (n : nat) (v1 : Vector.t A n) (v2 : Vector.t B n) (v3 : Vector.t C n), P n v1 v2 v3.
+Proof.
+  intros. rewrite rect3_P_zip. apply Vector.rect2.
+  - auto.
+  - unfold rect3_P. intros. destruct b. simpl.
+    destruct (unzip v4). auto.
+Defined.
 
 Instance VecEqTransitive :
   forall {a n} {rel : relation a} `{Transitive a rel},
   Transitive (@VecEq a n rel) := {}.
 Proof.
-  intros. induction x.
-  + rewrite (tO_is_nil z). constructor.
-  + pose proof (tS_is_cons y). do 2 destruct H2.
-    pose proof (tS_is_cons z). do 2 destruct H3. subst.
-    simpl. destruct H1, H0. split.
-    * rewrite H0. auto.
-    * apply (IHx _ _ H3 H2).
+  apply (rect3 (fun _ x y z => VecEq rel x y -> VecEq rel y z -> VecEq rel x z)); simpl.
+  - auto.
+  - intros. destruct H1, H2. split.
+    + rewrite H1. auto.
+    + auto.
 Qed.
 
 Instance VecEqEquivalence :
@@ -91,24 +103,15 @@ Instance VecSetoid :
 Instance VJSL_Vec : forall {a n} `{VJoinSemiLattice a},
                      VJoinSemiLattice (Vector.t a n) := {}.
 Proof.
-- intros. induction x.
-  + rewrite (tO_is_nil y), (tO_is_nil z). constructor.
-  + pose proof (tS_is_cons y). do 2 destruct H0.
-    pose proof (tS_is_cons z). do 2 destruct H1. subst.
-    simpl. split.
-    * apply (jslAssociativity h x0 x2).
-    * apply IHx.
-- intros. induction x.
-  + rewrite (tO_is_nil y). constructor.
-  + pose proof (tS_is_cons y). do 2 destruct H0. subst.
-    simpl. split.
-    * apply (jslCommutativity h x0).
-    * apply IHx.
+- revert n. apply rect3; simpl.
+  + auto.
+  + intros. split; auto. apply (jslAssociativity a0 b c).
+- revert n. apply Vector.rect2; simpl.
+  + auto.
+  + intros. split; auto. apply (jslCommutativity a0 b).
 - intros. induction x; simpl.
   + auto.
-  + split.
-    * apply (jslIdempotency h).
-    * apply IHx.
+  + split; auto. apply (jslIdempotency h).
 Qed.
 
 Instance BJSL_Vec : forall {a n} `{BoundedJoinSemiLattice a},
