@@ -338,7 +338,7 @@ Fixpoint ourShow (myi : TID) (s0 : State) : list Time -> option Time :=
     end.
 
 Definition minimum (l : list Time) : Time :=
-  fold_left Max.min l (hd default l). (* Partiality! *)
+  fold_left Max.min l (hd (error "Empty list") l). (* Partiality! *)
 
 Definition pref (tv : TimeMap) (lg : Log) : list (Time * TID) :=
   unstableLogPrefix (minimum (map snd (MapNat2Max.bindings tv))) lg.
