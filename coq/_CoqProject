@@ -6,6 +6,7 @@
 ./Max.v
 ./MMap.v
 ./MSet.v
+./ModuleTypes.v
 ./Op.v
 ./OpInst.v
 ./Showtime.v

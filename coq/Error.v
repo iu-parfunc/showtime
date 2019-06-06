@@ -9,17 +9,17 @@ Class Default (a : Type) := {
 
 (* The use of [Qed] is crucial, this way we cannot look through [error] in our proofs. *)
 Definition error {a} `{Default a} : string -> a.
-Proof. exact (fun _ => default). Qed.
+Proof. exact (fun _ => default). Defined.
 
 (* The use of [Qed] is crucial, this way we cannot look through [error] in our proofs. *)
 Definition undefined {a} `{Default a} : a.
-Proof. exact default. Qed.
+Proof. exact default. Defined.
 
 Definition errorWithoutStackTrace {a} `{Default a} :
   string -> a := error.
 
 Definition patternFailure {a} `{Default a} : a.
-Proof. exact default. Qed.
+Proof. exact default. Defined.
 
 Instance DefaultMax : Default Max := {
   default := MaxZero

@@ -1,10 +1,10 @@
-From Showtime Require Import Destruct Error ListAsOT Max MSet Op OpInst State.
+From Showtime Require Import Destruct Error ListAsOT Max ModuleTypes MSet Op OpInst State.
 Require Import Arith.Wf_nat Bool List Omega.
 Require Import Structures.Orders Structures.OrdersEx.
 Open Scope string_scope.
 
-Module SetNat  := MSets.MSetAVL.Make Nat_as_OT.
-Module VSetNat := VMSet Nat_as_OT SetNat.
+Module SetNat  := MSets.MSetAVL.Make Nat_as_OST.
+Module VSetNat := VMSet Nat_as_OST SetNat.
 
 Definition SetTID := SetNat.t.
 
@@ -17,7 +17,7 @@ Definition tick : TID -> State -> State :=
   tickN (nat_to_Max 1).
 
 Definition epsilon : Time :=
-  nat_to_Max 1.
+  mkMaxNat 1 10.
 
 Definition myEpsilon (n : TID) : Time :=
   nat_to_Max (n + 1) * epsilon.
@@ -320,16 +320,21 @@ Definition option_bind {a b} (oa : option a) (k : a -> option b) : option b :=
 
 Notation "o >>= k" := (option_bind o k) (at level 10, left associativity).
 
+Definition myt : TID -> State -> Time :=
+  myTime.
+
 Fixpoint ourShow (myi : TID) (s0 : State) : list Time -> option Time :=
   fix go (l : list Time) : option Time :=
     match l with
     | nil => None
     | t :: rst =>
-      readParticipants t s0 >>=
-      fun set =>
-        if SetNat.mem myi set
-        then Some t
-        else go rst
+      if t <? myt myi s0
+      then readParticipants t s0 >>=
+           fun set =>
+             if SetNat.mem myi set
+             then Some t
+             else go rst
+      else Some t
     end.
 
 Definition minimum (l : list Time) : Time :=
@@ -340,9 +345,6 @@ Definition pref (tv : TimeMap) (lg : Log) : list (Time * TID) :=
 
 Definition times (tv : TimeMap) (lg : Log) : list Time :=
   showtimes (map fst (pref tv lg)).
-
-Definition myt : TID -> State -> Time :=
-  myTime.
 
 Definition result (myi : TID) (s0 : State) : option Time :=
   match s0 with
@@ -416,33 +418,25 @@ Definition startState (ops: Prog) : State :=
                                       (seq 0 (numThreads ops))))
           SetPairMaxNat.empty.
 
-Module ListOp_as_OT :=
-  list_as_OT Op_as_OT.
-Module Prog_as_OT :=
-  list_as_OT ListOp_as_OT.
-Module LabeledProgElem_as_OT :=
-  PairOrderedType Nat_as_OT ListOp_as_OT.
-Module LabeledProg_as_OT :=
-  list_as_OT LabeledProgElem_as_OT.
-Module Oplog_as_OT :=
-  list_as_OT OpInst_as_OT.
+Module ListOp_as_OST :=
+  list_as_OST Op_as_OST.
+Module Prog_as_OST :=
+  list_as_OST ListOp_as_OST.
+Module LabeledProgElem_as_OST :=
+  PairOrderedShowType Nat_as_OST ListOp_as_OST.
+Module LabeledProg_as_OST :=
+  list_as_OST LabeledProgElem_as_OST.
+Module Oplog_as_OST :=
+  list_as_OST OpInst_as_OST.
 Module SetOplog :=
-  MSets.MSetAVL.Make Oplog_as_OT.
+  MSets.MSetAVL.Make Oplog_as_OST.
 Module VSetOplog :=
-  VMSet Oplog_as_OT SetOplog.
+  VMSet Oplog_as_OST SetOplog.
 
-Module TripleOrderedType (A : OrderedType)
-                          (B : OrderedType)
-                          (C : OrderedType) <: OrderedType.
-  Module AB := PairOrderedType A B.
-  Module ABC := PairOrderedType AB C.
-  Include ABC.
-End TripleOrderedType.
-
-Module Conf_as_OT :=
-  TripleOrderedType State_as_OT LabeledProg_as_OT Oplog_as_OT.
-Module SetConf  := MSets.MSetAVL.Make Conf_as_OT.
-Module VSetConf := VMSet Conf_as_OT SetConf.
+Module Conf_as_OST :=
+  TripleOrderedShowType State_as_OST LabeledProg_as_OST Oplog_as_OST.
+Module SetConf  := MSets.MSetAVL.Make Conf_as_OST.
+Module VSetConf := VMSet Conf_as_OST SetConf.
 
 Definition splitAt {a} (n : nat) (xs : list a) : (list a * list a) :=
   (firstn n xs, skipn n xs).
@@ -501,22 +495,22 @@ Fixpoint explore (fuel : nat) (visited next : SetConf.t) : (SetConf.t * SetConf.
 Definition done : SetConf.t -> SetConf.t :=
   SetConf.filter (fun c => match c with | (s, p, _) => isProgDone s p end).
 
-Module StateOplog_as_OT :=
-  PairOrderedType State_as_OT Oplog_as_OT.
-Module StateProgOplog_as_OT :=
-  TripleOrderedType State_as_OT Prog_as_OT Oplog_as_OT.
+Module StateOplog_as_OST :=
+  PairOrderedShowType State_as_OST Oplog_as_OST.
+Module StateProgOplog_as_OST :=
+  TripleOrderedShowType State_as_OST Prog_as_OST Oplog_as_OST.
 Module SetStateOplog :=
-  MSets.MSetAVL.Make StateOplog_as_OT.
+  MSets.MSetAVL.Make StateOplog_as_OST.
 Module VSetStateOplog :=
-  VMSet StateOplog_as_OT SetStateOplog.
+  VMSet StateOplog_as_OST SetStateOplog.
 Module SetStateProgOplog :=
-  MSets.MSetAVL.Make StateProgOplog_as_OT.
+  MSets.MSetAVL.Make StateProgOplog_as_OST.
 Module VSetStateProgOplog :=
-  VMSet StateProgOplog_as_OT SetStateProgOplog.
+  VMSet StateProgOplog_as_OST SetStateProgOplog.
 
-Module MapNat2ListOp' := MMaps.MMapList.Make_ord Nat_as_OT ListOp_as_OT.
+Module MapNat2ListOp' := MMaps.MMapList.Make_ord Nat_as_OST ListOp_as_OST.
 Module MapNat2ListOp  := MapNat2ListOp'.MapS.
-Module VMapNat2ListOp := MMaps.MMapFacts.WProperties_fun Nat_as_OT MapNat2ListOp.
+Module VMapNat2ListOp := MMaps.MMapFacts.WProperties_fun Nat_as_OST MapNat2ListOp.
 
 Definition fromOption {a} (def : a) (oa : option a) : a :=
   match oa with

@@ -1,10 +1,13 @@
-From Showtime Require Import Destruct Lattice.
+From QuickChick Require Import Show.
+From Showtime Require Import Destruct Lattice ModuleTypes.
 Require Import Classes.RelationClasses.
 Require Import MMaps.MMapList MMaps.MMapFacts.
+Require Import String.
 Require SetoidClass. (* (==) from SetoidClass clashes with stuff from MMaps. Ugh. *)
 Module SC := SetoidClass.
+Open Scope string_scope.
 
-Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D)
+Module VMMap (X : OrderedShowType) (D : OrderedShowType) (Import P: OrderedLattice D)
     <: OrderedType.
   Module M'     := Make_ord X D.
   Module M      := M'.MapS.
@@ -280,4 +283,8 @@ Module VMMap (X : OrderedType) (D : OrderedType) (Import P: OrderedLattice D)
     forall `{VJoinSemiLattice D.t},
     VBoundedJoinSemiLattice (M.t D.t) := {}.
   Proof. destruct x. apply merge_union_nil_r. Qed.
+
+  Instance show_t : Show (M.t D.t) := {
+    show m := "of_list " ++ show (M.bindings m)
+  }.
 End VMMap.

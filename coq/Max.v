@@ -1,8 +1,11 @@
-From Showtime Require Import Destruct Lattice.
+From QuickChick Require Import Show.
+From Showtime Require Import Destruct Lattice ModuleTypes.
 Require Import Omega.
 Require Import QArith QArith.QOrderedType.
 Require Import SetoidClass.
+Require Import String.
 Require Import Structures.Equalities Structures.Orders.
+Open Scope string_scope.
 
 Definition Qlt_bool (x y : Q) : bool :=
   (Qnum x * QDen y <? Qnum y * QDen x)%Z.
@@ -57,6 +60,22 @@ Hint Resolve Qcompare_spec : cdestruct.
 (* A "newtype" around Q *)
 Inductive Max : Type :=
 | MkMax : forall (q : Q), (0 <= Qnum q)%Z -> Max.
+
+Instance showPos : Show positive := {
+  show p := show (Pos.to_nat p)
+}.
+
+Instance showQ : Show Q := {
+  show q := match Qred q with
+            | Qmake n d => show n ++ " / " ++ show d
+            end
+}.
+
+Instance showMax : Show Max := {
+  show m := match m with
+            | MkMax q _ => show q
+            end
+}.
 
 Lemma ZofNNonNeg :
   forall (numer : N), (0 <= Z.of_N numer)%Z.
@@ -345,6 +364,11 @@ Module Max_as_OT <: OrderedType.
   Lemma compare_spec : forall x y : t, CompareSpec (eq x y) (lt x y) (lt y x) (compare x y).
   Proof. destruct x, y. simpl. cdestruct (q ?= q0); auto. Qed.
 End Max_as_OT.
+
+Module Max_as_OST <: OrderedShowType.
+  Include Max_as_OT.
+  Instance show_t : Show Max := showMax.
+End Max_as_OST.
 
 Module Max_as_OL <: OrderedLattice Max_as_OT.
   Instance Setoid_D : Setoid Max := maxEqSetoid.

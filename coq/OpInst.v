@@ -1,8 +1,11 @@
-From Showtime Require Import Max State Op.
+From QuickChick Require Import QuickChick.
+From Showtime Require Import Max ModuleTypes State Op.
 Require Import Structures.Orders Structures.OrdersEx.
 
 Inductive OpInst : Type :=
 | MkOpInst : TID -> Time -> Op -> OpInst.
+
+Derive Show for OpInst.
 
 Module OpInst_as_OT <: OrderedType.
   Definition t := OpInst.
@@ -160,3 +163,8 @@ Module OpInst_as_OT <: OrderedType.
     constructor. auto.
   Qed.
 End OpInst_as_OT.
+
+Module OpInst_as_OST <: OrderedShowType.
+  Include OpInst_as_OT.
+  Instance show_t : Show OpInst := ShowOpInst.
+End OpInst_as_OST.

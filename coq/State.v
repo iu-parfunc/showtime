@@ -1,4 +1,5 @@
-From Showtime Require Import Lattice Max MMap MSet Stream Vec.
+From QuickChick Require Import QuickChick.
+From Showtime Require Import Lattice Max MMap ModuleTypes MSet Stream Vec.
 Require Import Classes.RelationClasses Setoid SetoidClass.
 Require Import Lists.Streams.
 Require MMaps.MMapList MMaps.MMapFacts.
@@ -6,10 +7,10 @@ Require MSets.MSetAVL MSets.MSetProperties.
 Require Import QArith.
 Require Import Structures.Equalities Structures.Orders Structures.OrdersEx.
 
-Module Max_Nat_as_OT := PairOrderedType Max_as_OT Nat_as_OT.
-Module SetPairMaxNat  := MSets.MSetAVL.Make Max_Nat_as_OT.
-Module VSetPairMaxNat := VMSet Max_Nat_as_OT SetPairMaxNat.
-Module VMapNat2Max := VMMap Nat_as_OT Max_as_OT Max_as_OL.
+Module Max_Nat_as_OST := PairOrderedShowType Max_as_OST Nat_as_OST.
+Module SetPairMaxNat  := MSets.MSetAVL.Make Max_Nat_as_OST.
+Module VSetPairMaxNat := VMSet Max_Nat_as_OST SetPairMaxNat.
+Module VMapNat2Max := VMMap Nat_as_OST Max_as_OST Max_as_OL.
 Module MapNat2Max  := VMapNat2Max.M.
 
 Definition Time := Max.
@@ -19,6 +20,8 @@ Definition Log := SetPairMaxNat.t.
 
 Inductive State : Type :=
 | MkState : TimeMap -> Log -> State.
+
+Derive Show for State.
 
 Definition StateEq (s1 s2 : State) : Prop :=
   match s1, s2 with
@@ -191,3 +194,8 @@ Module State_as_OT <: OrderedType.
     constructor. auto.
   Qed.
 End State_as_OT.
+
+Module State_as_OST <: OrderedShowType.
+  Include State_as_OT.
+  Instance show_t : Show State := ShowState.
+End State_as_OST.

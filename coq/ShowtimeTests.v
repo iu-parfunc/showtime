@@ -1,6 +1,8 @@
+From QuickChick Require Import Show.
 From Showtime Require Import Max Op Showtime State.
 Require Import Lists.List.
 Import Lists.List.ListNotations.
+Open Scope string_scope.
 
 Definition seven    : Time := nat_to_Max 7.
 Definition eight    : Time := nat_to_Max 8.
@@ -24,3 +26,21 @@ Definition t10  : Prog := [[Open;Compute nine;Open];[Compute eight;Open]].
 Definition t10b : Prog := [[Open;Compute eleven;Open];[Compute seven;Open]].
 Definition t11  : Prog := [[Open;Compute nine;Open];[Compute eight;Open];[Compute eight;Open]].
 Definition t12  : Prog := [[Open;Open];[Open]].
+
+Theorem ut0   : threadOrder t0   = [0].       Proof. auto. Qed.
+Theorem ut1   : threadOrder t1   = [0;1].     Proof. auto. Qed.
+Theorem ut2   : threadOrder t2   = [1;0].     Proof. auto. Qed.
+Theorem ut3   : threadOrder t3   = [0;1].     Proof. auto. Qed.
+Theorem ut4   : threadOrder t4   = [1;0].     Proof. auto. Qed.
+Theorem ut5   : threadOrder t5   = [0;1;2].   Proof. auto. Qed.
+Theorem ut6   : threadOrder t6   = [2;0;1].   Proof. auto. Qed.
+Theorem ut7   : threadOrder t7   = [0;1].     Proof. auto. Qed.
+Theorem ut8   : threadOrder t8   = [0;1].     Proof. auto. Qed.
+Theorem ut9   : threadOrder t9   = [0;0;1].   Proof. auto. Qed.
+Theorem ut10  : threadOrder t10  = [0;0;1].   Proof. auto. Qed.
+Theorem ut10b : threadOrder t10b = [0;1;0].   Proof. auto. Qed.
+Theorem ut11  : threadOrder t11  = [0;0;1;2]. Proof. auto. Qed.
+Theorem ut12  : threadOrder t12  = [0;0;1].   Proof. auto. Qed.
+
+Theorem ut_two_empty_programs   : threadOrder [[];[]]    = []. Proof. auto. Qed.
+Theorem ut_three_empty_programs : threadOrder [[];[];[]] = []. Proof. auto. Qed.
