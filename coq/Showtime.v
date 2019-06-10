@@ -538,7 +538,10 @@ Definition interp2 (ops : Prog) : (SetStateOplog.t * SetStateProgOplog.t) :=
 Definition summarize (ss : (SetStateOplog.t * SetStateProgOplog.t)) : (option Oplog * nat) :=
   let (s1, s2) := ss in
   let logs := VSetOplog.SProps.of_list (map snd (SetStateOplog.elements s1)) in
-  (* TODO: This call to elements seems redundant. *)
+  (* The use of `elements` here may seem a little strange, given that we just
+     converted a list to a set with `of_list` in `logs`. This is mainly done because
+     the underlying list could have duplicates, so converting back to a set removes
+     them. Alternatively, we could use something like `nub`. *)
   match SetOplog.elements logs with
   | ans :: nil => (Some ans, SetStateProgOplog.cardinal s2)
   | nil        => (None,     SetStateProgOplog.cardinal s2)
