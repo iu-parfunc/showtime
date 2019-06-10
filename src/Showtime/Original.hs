@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wincomplete-uni-patterns #-}
 module Showtime.Original where
 
@@ -11,7 +12,7 @@ import Data.Maybe (catMaybes)
 import qualified Data.Set as S
 import Data.Set (Set)
 import qualified Data.Sequence as Seq
-import Data.Sequence ((|>))
+import Data.Sequence (Seq, ViewL(..), (<|), (|>), (><))
 import Showtime.Lattice
 
 #if 0
@@ -120,9 +121,7 @@ tick :: TID -> State -> State
 tick = tickN 1
 
 myTime :: TID -> State -> Time
-myTime myi (State tv _) =
-  case M.lookup myi tv of
-    Just t -> t
+myTime myi (State tv _) = tv M.! myi
 
 -- | Gain access to the resource. May advance our clocks to represent
 -- logical waiting, and may "block" for more information by returning Nothing.
@@ -288,7 +287,7 @@ data Op = Compute Time
 
 -- | A run's result is defined as the linear sequence of operations
 -- applied to the resource.
-type Oplog = Seq.Seq OpInst
+type Oplog = Seq OpInst
 data OpInst = OpInst TID Time Op deriving (Show, Ord, Eq, Read)
 
 -- Try1:
@@ -361,22 +360,31 @@ interp2 ops =
 
     final, unreached :: Set Conf
     (final, unreached) = explore defaultFuel S.empty
-                           (S.singleton (startState, zip [TID 0..] ops, Seq.empty))
+                           (S.singleton ( startState
+                                        , Seq.fromList (zip [TID 0..] ops)
+                                        , Seq.empty))
+
+mapSeqWithContext :: forall a b. (Seq a -> a -> Seq a -> b) -> Seq a -> Seq b
+mapSeqWithContext f = go mempty
+  where
+    go :: Seq a -> Seq a -> Seq b
+    go acc s =
+      case Seq.viewl s of
+        EmptyL  -> Seq.empty
+        x :< xs -> f acc x xs <| go (acc |> x) xs
 
 -- | Enumerate reachable states by one reduction.
 expand :: Conf -> Set Conf
 expand (s0, ps0, ol) =
   trace ("\n EXPAND STATE! Live threads " ++ show ps0 ++ " state " ++ show s0) $
-  S.fromList $ catMaybes $
-  [ -- TODO: This case is partial!
-    case L.splitAt thrd ps0 of
+  S.fromList $ catMaybes $ Fld.toList $ mapSeqWithContext (\frnt (myid, opperinos) bk ->
+    case opperinos of
      -- The thread is tapped out of ops. Bump its clock to show it won't be
      -- doing anything else:
-     (frnt, (myid, []) : bk) ->
-       Just (tickN inf myid s0, frnt ++ bk, ol)
-     (frnt, (myid, op:rst) : bk) ->
+     []     -> Just (tickN inf myid s0, frnt >< bk, ol)
+     op:rst ->
        let _myt      = myTime myid s0
-           remaining = (frnt ++ (myid, rst) : bk) -- Ops left IF we reduce.
+           remaining = (frnt >< (myid, rst) <| bk) -- Ops left IF we reduce.
        in case op of
           Open -> -- May not reduce yet; must be able to ascertain next showtime.
             case openResource myid s0 of
@@ -384,7 +392,7 @@ expand (s0, ps0, ol) =
                          Nothing
               Just (s1, showStrt) ->
                 -- We go to the BlockedOpen state even IF it could reduce immediately:
-                Just (s1, frnt ++ (myid, BlockedOpen showStrt : rst) : bk, ol)
+                Just (s1, frnt >< (myid, BlockedOpen showStrt : rst) <| bk, ol)
 
           BlockedOpen showStrt ->
             -- We must make sure that all threads have reached the start of the show
@@ -403,9 +411,8 @@ expand (s0, ps0, ol) =
                 else Nothing
 
           -- Compute ops are non-blocking, they can always step:
-          Compute dt -> Just (tickN dt myid s0, remaining, ol)
-  | thrd <- [0..L.length ps0 - 1] -- Try to take a step on each thread.
-  ]
+          Compute dt -> Just (tickN dt myid s0, remaining, ol))
+  ps0
 
 -- Search K levels out in the graph:
 explore :: Int -> Set Conf -> Set Conf -> (Set Conf, Set Conf)
@@ -434,14 +441,14 @@ isProgDone _s p = all (L.null . snd) p
 --                              all (>= inf) (L.take (maximum (L.map (fromTID . fst) p)) tv))
 
 -- | Book-keeping, keeping track of a sparse version of 'Prog'.
-type LabeledProg = [(TID, [Op])]
+type LabeledProg = Seq (TID, [Op])
 
 -- | Convert from sparse to dense representation.
 dense :: Int -> LabeledProg -> Prog
 dense n prs = [ maybe [] id (M.lookup (TID i) mp) | i <- [0..n-1] ]
   where
     mp :: Map TID [Op]
-    mp = M.fromList prs
+    mp = M.fromList $ Fld.toList prs
 
 -- | A configuration while we are evaluating.
 type Conf = (State, LabeledProg, Oplog)

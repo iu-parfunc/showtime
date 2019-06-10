@@ -3,6 +3,9 @@ Require Import Arith.Wf_nat Bool List Omega.
 Require Import Structures.Orders Structures.OrdersEx.
 Open Scope string_scope.
 
+(* Good enough for now *)
+Definition Seq := @list.
+
 Module SetNat  := MSets.MSetAVL.Make Nat_as_OST.
 Module VSetNat := VMSet Nat_as_OST SetNat.
 
@@ -372,9 +375,9 @@ Definition openResource (me : TID) (s0 : State) : option (State * Time) :=
 
 Definition Prog := list (list Op).
 
-Definition Oplog := list OpInst.
+Definition Oplog := Seq OpInst.
 
-Definition LabeledProg := list (TID * list Op).
+Definition LabeledProg := Seq (TID * list Op).
 
 Definition Conf := (State * LabeledProg * Oplog)%type.
 
@@ -445,11 +448,22 @@ Definition splitAt {a} (n : nat) (xs : list a) : (list a * list a) :=
    Coq to overflow its stack *)
 Definition inf : Time := nat_to_Max 1000.
 
-Definition expandHelper (s0 : State) (ps0 : LabeledProg) (ol : Oplog) (thrd : nat) : option Conf :=
-  match splitAt thrd ps0 with
-  | (frnt, (myid, nil) :: bk) =>
+Definition mapSeqWithContext {a b} (f : Seq a -> a -> Seq a -> b) : Seq a -> Seq b :=
+  (fix go (acc : Seq a) (s : Seq a) : Seq b :=
+     match s with
+     | nil     => nil
+     | x :: xs => f acc x xs :: go (acc ++ x :: nil) xs
+     end) nil.
+
+Definition expandHelper (s0 : State) (ps0 : LabeledProg) (ol : Oplog) 
+                         (frnt : Seq (TID * list Op))
+                         (myidOpperinos : TID * list Op)
+                         (bk : Seq (TID * list Op)) : option Conf :=
+  let (myid, opperinos) := myidOpperinos in
+  match opperinos with
+  | nil =>
       Some (tickN inf myid s0, frnt ++ bk, ol)
-  | (frnt, (myid, op :: rst) :: bk) =>
+  | op :: rst =>
       let remaining := (frnt ++ (myid, rst) :: bk) in
       match op with
       | Open =>
@@ -468,14 +482,13 @@ Definition expandHelper (s0 : State) (ps0 : LabeledProg) (ol : Oplog) (thrd : na
           end
       | Compute dt => Some (tickN dt myid s0, remaining, ol)
       end
-  | (_frnt, nil) => patternFailure (* Partiality! *)
   end.
 
 Definition expand (c : Conf) : SetConf.t :=
   match c with
   | (s0, ps0, ol) =>
-      VSetConf.SProps.of_list (catSomes (map (expandHelper s0 ps0 ol)
-                                             (seq 0 (length ps0))))
+      VSetConf.SProps.of_list (catSomes (mapSeqWithContext
+                                             (expandHelper s0 ps0 ol) ps0))
   end.
 
 Fixpoint explore (fuel : nat) (visited next : SetConf.t) : (SetConf.t * SetConf.t) :=
